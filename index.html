@@ -592,7 +592,7 @@ function buildPRRecords(prData){
     const aging=refDate?daysBetween(refDate,TODAY):null;
     recs.push({
       docNumber, prType:prType(docNumber),
-      name:r['Name']||'', preparer:r['Preparer']||'', vendorName:'',
+      name:r['Name']||'', preparer:r['Preparer']||'', vendorName:'', quotationRef:r['Quotation reference']||'',
       department:r['Department']||'—', deptGroup:normalizeDept(r['Department']),
       project:r['Location']||'—', contract:r['Contract']||'',
       bucket, subBucket: step || null,
@@ -972,7 +972,7 @@ function renderTable(records){
 
 /* ============ Drill-through ============ */
 function getDrillColumns(){
-  if(mode==='PR') return ['PR #','Type','Name','Department','Project','Sub-bucket (Step)','Status','Created','Step Date','Aging','Pending With'];
+  if(mode==='PR') return ['PR #','Type','Quote Ref','Name','Department','Project','Sub-bucket (Step)','Status','Created','Step Date','Aging','Pending With'];
   return ['PO #','Linked PR #','Type','Vendor','Department','Project','Sub-bucket (Step)','Status','Created','Step Date','Aging','Amount','Pending With'];
 }
 /* Shared modal renderer — used by both bucket/dept drill and Overall-KPI drill */
@@ -1008,6 +1008,7 @@ function showDrillModal(subset, title){
       <tr>
         <td><b>${escapeHtml(r.docNumber)}</b></td>
         <td><b style="color:${r.prType==='CPR'?'#0ea5e9':'#8b5cf6'}">${r.prType}</b></td>
+        <td>${escapeHtml(r.quotationRef||'—')}</td>
         <td>${escapeHtml(r.name)}</td>
         <td>${escapeHtml(r.department)}</td>
         <td>${escapeHtml(r.project)}</td>
@@ -1079,11 +1080,11 @@ function closeDrill(){document.getElementById('drillModal').classList.remove('ac
 function exportDrillToExcel(){
   if(!currentDrillSubset||!currentDrillSubset.length){alert('Nothing to export.');return;}
   const cols=mode==='PR'
-    ? ['PR #','Type','Name','Department','Project','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Aging (days)','Pending With','Amount']
+    ? ['PR #','Type','Quote Ref','Name','Department','Project','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Aging (days)','Pending With','Amount']
     : ['PO #','Vendor','Department','Project','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Aging (days)','Amount','Pending With','Linked PR'];
   const wsData=[cols];
   currentDrillSubset.forEach(r=>{
-    if(mode==='PR') wsData.push([r.docNumber,r.prType,r.name,r.department,r.project,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.aging,r.pendingUser,r.amount]);
+    if(mode==='PR') wsData.push([r.docNumber,r.prType,r.quotationRef,r.name,r.department,r.project,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.aging,r.pendingUser,r.amount]);
     else wsData.push([r.docNumber,r.vendorName,r.department,r.project,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.aging,r.amount,r.pendingUser,r.linkedPR]);
   });
   const wb=XLSX.utils.book_new();
@@ -1095,11 +1096,11 @@ function exportDrillToExcel(){
 
 function exportToExcel(){
   const cols=mode==='PR'
-    ? ['PR #','Type','Name','Department','Project','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Aging (days)','Pending With','Amount']
+    ? ['PR #','Type','Quote Ref','Name','Department','Project','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Aging (days)','Pending With','Amount']
     : ['PO #','Vendor','Department','Project','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Aging (days)','Amount','Pending With','Linked PR'];
   const wsData=[cols];
   filteredRecords.forEach(r=>{
-    if(mode==='PR') wsData.push([r.docNumber,r.prType,r.name,r.department,r.project,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.aging,r.pendingUser,r.amount]);
+    if(mode==='PR') wsData.push([r.docNumber,r.prType,r.quotationRef,r.name,r.department,r.project,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.aging,r.pendingUser,r.amount]);
     else wsData.push([r.docNumber,r.vendorName,r.department,r.project,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.aging,r.amount,r.pendingUser,r.linkedPR]);
   });
   const wb=XLSX.utils.book_new();
