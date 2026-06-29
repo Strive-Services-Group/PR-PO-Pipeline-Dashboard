@@ -1535,20 +1535,62 @@ function spawnFallingLines(){
 })();
 </script>
 <script>
-/* Shared data loader: reads pr.xlsx / po.xlsx committed to this repo folder so all
-   colleagues see the same data on refresh. Cache-busted to always get the latest. */
-window.addEventListener('load', function () {
-  try {
-    var bust = '?t=' + Date.now();
-    function grab(n){ return fetch(n + bust).then(function(r){ return r.ok ? r.blob() : null; }).catch(function(){ return null; }); }
-    Promise.all([grab('pr.xlsx'), grab('po.xlsx')]).then(function (bl) {
-      var files = [];
-      if (bl[0]) files.push(new File([bl[0]], 'pr.xlsx'));
-      if (bl[1]) files.push(new File([bl[1]], 'po.xlsx'));
-      if (files.length && typeof handleFileUpload === 'function') { handleFileUpload({ target: { files: files } }); }
-    });
-  } catch (e) {}
-});
+/* LIVE data loader: pulls assembled rows from the Azure proxy (D365 F&O) on load and
+   every 3 minutes, so the dashboard auto-refreshes with no manual Excel upload.
+   The manual "Load Latest Excel" button still works as a fallback/override. */
+(function () {
+  var PROXY = 'https://pr-po-dashboard-proxy-b4budzexh7eveved.uaenorth-01.azurewebsites.net/api';
+  var KEY = 'hxj_IHMOErx6gGKKJlZcIZkFm8hCh3dbkxckMOAf5XBMAzFuycxNog==';
+  function mapPR(rows){ return (rows||[]).map(function(r){ return {
+    'Purchase requisition': r.purchaseRequisition,
+    'Quotation reference': r.quotationReference,
+    'Name': r.name,
+    'Preparer': r.preparer,
+    'Project ID': r.projectId,
+    'Status': r.status,
+    'Created date': r.createdDate,
+    'Department': r.department,
+    'Location': r.location,
+    'Contract': r.contract,
+    'Total amount': r.totalAmount,
+    'Pending Approver/User': r.pendingApprover,
+    'Step name': r.stepName,
+    'Step date and time': r.stepDateTime
+  }; }); }
+  function mapPO(rows){ return (rows||[]).map(function(r){ return {
+    'Purchase order': r.purchaseOrder,
+    'Purchase requisition': r.linkedPR,
+    'Vendor name': r.vendorName,
+    'Approval status': r.approvalStatus,
+    'Purchase order status': r.poStatus,
+    'Currency': r.currency,
+    'Created date and time': r.createdDate,
+    'Department': r.department,
+    'Location': r.location,
+    'Contract': r.contract,
+    'Total amount': r.totalAmount,
+    'Pending Approver/User': r.pendingApprover,
+    'Step name': r.stepName,
+    'Step date and time': r.stepDateTime
+  }; }); }
+  function grab(ep){ return fetch(PROXY + '/' + ep + '?code=' + KEY).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }); }
+  function loadLive(){
+    return Promise.all([grab('pr'), grab('po')]).then(function(res){
+      var pr = res[0], po = res[1], any = false;
+      if (pr && pr.rows) { var a = mapPR(pr.rows); PR_DATA.length = 0; a.forEach(function(x){ PR_DATA.push(x); }); any = true; }
+      if (po && po.rows) { var b = mapPO(po.rows); PO_DATA.length = 0; b.forEach(function(x){ PO_DATA.push(x); }); any = true; }
+      if (any) {
+        if (typeof rebuild === 'function') rebuild();
+        if (typeof updateLastRefresh === 'function') updateLastRefresh();
+        var tag = document.getElementById('cacheTag');
+        if (tag) { tag.style.display = 'inline-flex'; tag.textContent = 'LIVE FROM D365'; tag.title = 'Live from D365 · ' + new Date().toLocaleString(); }
+      }
+      return any;
+    }).catch(function(){ return false; });
+  }
+  window.loadLive = loadLive;
+  window.addEventListener('load', function(){ loadLive(); setInterval(loadLive, 180000); });
+})();
 </script>
 </body>
 </html>
