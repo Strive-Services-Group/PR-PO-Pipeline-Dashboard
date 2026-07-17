@@ -107,16 +107,20 @@ def main():
         return 0
 
     print("Committing and pushing to GitHub...")
-    # OneDrive/sandbox can leave a stale git lock behind; rename it aside (deleting
-    # is not always permitted). Only touch locks older than 60s so we never disturb
-    # a git operation that is genuinely running.
-    lock = os.path.join(REPO, ".git", "index.lock")
-    if os.path.exists(lock) and datetime.now().timestamp() - os.path.getmtime(lock) > 60:
-        try:
-            os.rename(lock, lock + ".stale." + datetime.now().strftime("%Y%m%d%H%M%S"))
-            print("  (cleared a stale git lock)")
-        except OSError:
-            pass
+    # OneDrive/sandbox can leave stale git locks behind (index.lock, HEAD.lock,
+    # refs locks); rename them aside since deleting is not always permitted.
+    # Only touch locks older than 60s so we never disturb a live git operation.
+    now = datetime.now().timestamp()
+    for root, _dirs, fnames in os.walk(os.path.join(REPO, ".git")):
+        for fn in fnames:
+            if fn.endswith(".lock"):
+                lock = os.path.join(root, fn)
+                try:
+                    if now - os.path.getmtime(lock) > 60:
+                        os.rename(lock, lock + ".stale." + datetime.now().strftime("%Y%m%d%H%M%S"))
+                        print(f"  (cleared stale git lock: {fn})")
+                except OSError:
+                    pass
     files = updated + (["pr_steps.json"] if "pr.xlsx" in updated else [])
     try:
         subprocess.run(["git", "add"] + files, cwd=REPO, check=True)
