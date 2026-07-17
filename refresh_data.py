@@ -33,6 +33,36 @@ EMAIL_DROPS = os.path.join(PARENT, "Email-Drops")
 NO_PUSH = "--no-push" in sys.argv
 
 
+def clear_git_locks():
+    """Rename stale git lock files aside (index.lock, HEAD.lock, refs locks).
+
+    On OneDrive-synced/sandboxed filesystems git sometimes cannot delete its own
+    lock files, which then block the next git operation. Renaming is allowed even
+    when deleting is not. Safe here because git() runs git synchronously - by the
+    time we sweep, no git process started by this script is still running.
+    """
+    # On Windows git cleans up after itself, so an existing lock may belong to a
+    # live GitHub Desktop operation - only clear clearly-abandoned ones there.
+    min_age = 60 if os.name == "nt" else 0
+    now = datetime.now().timestamp()
+    for root, _dirs, fnames in os.walk(os.path.join(REPO, ".git")):
+        for fn in fnames:
+            if fn.endswith(".lock"):
+                lock = os.path.join(root, fn)
+                try:
+                    if now - os.path.getmtime(lock) >= min_age:
+                        os.rename(lock, lock + ".stale." + datetime.now().strftime("%Y%m%d%H%M%S%f"))
+                        print(f"  (cleared stale git lock: {fn})")
+                except OSError:
+                    pass
+
+
+def git(args, **kw):
+    """Run a git command in the repo, sweeping stale locks first."""
+    clear_git_locks()
+    return subprocess.run(["git"] + args, cwd=REPO, **kw)
+
+
 def sheet_kind(path):
     """'pr', 'po', or None - decided by the header row, so filenames don't matter."""
     try:
@@ -107,34 +137,18 @@ def main():
         return 0
 
     print("Committing and pushing to GitHub...")
-    # OneDrive/sandbox can leave stale git locks behind (index.lock, HEAD.lock,
-    # refs locks); rename them aside since deleting is not always permitted.
-    # Only touch locks older than 60s so we never disturb a live git operation.
-    now = datetime.now().timestamp()
-    for root, _dirs, fnames in os.walk(os.path.join(REPO, ".git")):
-        for fn in fnames:
-            if fn.endswith(".lock"):
-                lock = os.path.join(root, fn)
-                try:
-                    if now - os.path.getmtime(lock) > 60:
-                        os.rename(lock, lock + ".stale." + datetime.now().strftime("%Y%m%d%H%M%S"))
-                        print(f"  (cleared stale git lock: {fn})")
-                except OSError:
-                    pass
     files = updated + (["pr_steps.json"] if "pr.xlsx" in updated else [])
     try:
-        subprocess.run(["git", "add"] + files, cwd=REPO, check=True)
-        staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=REPO)
-        if staged.returncode == 0:
+        git(["add"] + files, check=True)
+        if git(["diff", "--cached", "--quiet"]).returncode == 0:
             print("  Data is identical to what's already published - no push needed.")
             return 0
         msg = f"Data refresh {datetime.now():%Y-%m-%d %H:%M}"
-        c = subprocess.run(["git", "commit", "-m", msg], cwd=REPO,
-                           capture_output=True, text=True)
+        c = git(["commit", "-m", msg], capture_output=True, text=True)
         if c.returncode != 0:
             print(f"  git commit failed: {c.stdout}{c.stderr}")
             return 1
-        subprocess.run(["git", "push"], cwd=REPO, check=True)
+        git(["push"], check=True)
         print("Pushed. GitHub Pages will republish the dashboard in about a minute.")
     except FileNotFoundError:
         print("git command not found - files are updated in the repo folder.")
