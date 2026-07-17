@@ -107,17 +107,29 @@ def main():
         return 0
 
     print("Committing and pushing to GitHub...")
+    # OneDrive/sandbox can leave a stale git lock behind; rename it aside (deleting
+    # is not always permitted). Only touch locks older than 60s so we never disturb
+    # a git operation that is genuinely running.
+    lock = os.path.join(REPO, ".git", "index.lock")
+    if os.path.exists(lock) and datetime.now().timestamp() - os.path.getmtime(lock) > 60:
+        try:
+            os.rename(lock, lock + ".stale." + datetime.now().strftime("%Y%m%d%H%M%S"))
+            print("  (cleared a stale git lock)")
+        except OSError:
+            pass
     files = updated + (["pr_steps.json"] if "pr.xlsx" in updated else [])
     try:
         subprocess.run(["git", "add"] + files, cwd=REPO, check=True)
+        staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=REPO)
+        if staged.returncode == 0:
+            print("  Data is identical to what's already published - no push needed.")
+            return 0
         msg = f"Data refresh {datetime.now():%Y-%m-%d %H:%M}"
         c = subprocess.run(["git", "commit", "-m", msg], cwd=REPO,
                            capture_output=True, text=True)
         if c.returncode != 0:
-            print("  Nothing changed since last commit - no push needed."
-                  if "nothing to commit" in (c.stdout + c.stderr)
-                  else f"  git commit failed: {c.stdout}{c.stderr}")
-            return 0 if "nothing to commit" in (c.stdout + c.stderr) else 1
+            print(f"  git commit failed: {c.stdout}{c.stderr}")
+            return 1
         subprocess.run(["git", "push"], cwd=REPO, check=True)
         print("Pushed. GitHub Pages will republish the dashboard in about a minute.")
     except FileNotFoundError:
