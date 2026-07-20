@@ -46,12 +46,21 @@ def clear_git_locks():
     min_age = 60 if os.name == "nt" else 0
     now = datetime.now().timestamp()
     for root, _dirs, fnames in os.walk(os.path.join(REPO, ".git")):
+        if "stale-locks" in root:
+            continue
         for fn in fnames:
             if fn.endswith(".lock"):
                 lock = os.path.join(root, fn)
                 try:
                     if now - os.path.getmtime(lock) >= min_age:
-                        os.rename(lock, lock + ".stale." + datetime.now().strftime("%Y%m%d%H%M%S%f"))
+                        # Quarantine OUTSIDE refs/ etc. - a renamed file left inside
+                        # .git/refs/ would be misread by git as a corrupt ref.
+                        qdir = os.path.join(REPO, ".git", "stale-locks")
+                        os.makedirs(qdir, exist_ok=True)
+                        qname = (os.path.relpath(lock, os.path.join(REPO, ".git"))
+                                 .replace(os.sep, "_")
+                                 + ".stale." + datetime.now().strftime("%Y%m%d%H%M%S%f"))
+                        os.rename(lock, os.path.join(qdir, qname))
                         print(f"  (cleared stale git lock: {fn})")
                 except OSError:
                     pass
@@ -96,6 +105,16 @@ def candidates():
 
 def main():
     print("== PR/PO Dashboard data refresh ==")
+    # Sync with GitHub first: the cloud flow (Power Automate -> GitHub) may have
+    # already pushed today's data. After a successful pull, freshly-updated repo
+    # files are newer than the email drops, so this run becomes a clean no-op.
+    if not NO_PUSH:
+        try:
+            p = git(["pull", "--rebase", "--autostash"], capture_output=True, text=True)
+            print("  (synced with GitHub first)" if p.returncode == 0
+                  else f"  (git pull skipped: {(p.stdout + p.stderr).strip().splitlines()[-1] if (p.stdout or p.stderr) else 'unknown'})")
+        except FileNotFoundError:
+            pass
     updated = []
     cand = candidates()
 
