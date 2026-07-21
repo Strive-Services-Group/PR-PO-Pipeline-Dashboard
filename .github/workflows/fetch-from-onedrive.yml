@@ -5,7 +5,7 @@
 name: Fetch PR/PO from OneDrive
 on:
   schedule:
-    - cron: "*/30 4-11 * * *"   # every 30 min, 08:00-15:00 Dubai time (UTC+4)
+    - cron: "*/5 4-11 * * *"    # every 5 min, 08:00-15:00 Dubai time (UTC+4)
   workflow_dispatch:             # lets you run it on demand from the Actions tab
 
 permissions:
