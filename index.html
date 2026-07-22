@@ -551,8 +551,8 @@ let activeFilters={prtype:'all',bucket:'',step:'',dept:'',status:'',project:'',f
 function showLoader(t='Loading...'){document.getElementById('loaderText').innerText=t;document.getElementById('loader').classList.add('active');}
 function hideLoader(){document.getElementById('loader').classList.remove('active');}
 function parseDate(v){if(!v)return null;if(v instanceof Date)return v;const d=new Date(v);return isNaN(d.getTime())?null:d;}
-function fmtDate(d){if(!d)return'';if(typeof d==='string')d=parseDate(d);return d?d.toISOString().slice(0,10):'';}
-function fmtDateTime(d){if(!d)return'';if(typeof d==='string')d=parseDate(d);return d?d.toISOString().slice(0,16).replace('T',' '):'';}
+function fmtDate(d){if(!d)return'';if(typeof d==='string')d=parseDate(d);if(!d)return'';const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function fmtDateTime(d){if(!d)return'';if(typeof d==='string')d=parseDate(d);if(!d)return'';const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());}
 function daysBetween(d1,d2){if(!d1||!d2)return null;return Math.max(0,Math.floor((d2-d1)/86400000));}
 function agingClass(d){if(d==null)return'';if(d<=SLA_NORMAL_MAX)return'aging-green';if(d<=SLA_WARN_MAX)return'aging-amber';return'aging-red';}
 function agingLabel(d){if(d==null)return'<span class="aging-badge" style="background:#cbd5e1">—</span>';return`<span class="aging-badge ${agingClass(d)}">${d}d</span>`;}
@@ -912,11 +912,13 @@ function renderCharts(records){
 
   const today=new Date();today.setHours(0,0,0,0);const days=[];
   for(let i=6;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);days.push(d);}
-  const labels=days.map(d=>{const wd=d.toLocaleDateString(undefined,{weekday:'short'});return `${wd}<br>${d.toISOString().slice(5,10)}`;});
-  // Both PR and PO modes: split by linked PR/CPR prefix
-  const pr=days.map(d=>records.filter(r=>r.prType==='PR'&&r.createdDate&&sameDay(r.createdDate,d)).length);
-  const cpr=days.map(d=>records.filter(r=>r.prType==='CPR'&&r.createdDate&&sameDay(r.createdDate,d)).length);
-  const other=days.map(d=>records.filter(r=>(!r.prType||r.prType==='OTHER')&&r.createdDate&&sameDay(r.createdDate,d)).length);
+  const labels=days.map(d=>{const wd=d.toLocaleDateString(undefined,{weekday:'short'});const p=n=>String(n).padStart(2,'0');return `${wd}<br>${p(d.getMonth()+1)}-${p(d.getDate())}`;});
+  // "Created per day" counts ALL created that day (incl. Closed), matching the "Today's created" KPI —
+  // not just live-pipeline items. Uses the full filtered set, not the live-only subset passed in.
+  const allCreated = (typeof filteredRecords !== 'undefined') ? filteredRecords : records;
+  const pr=days.map(d=>allCreated.filter(r=>r.prType==='PR'&&r.createdDate&&sameDay(r.createdDate,d)).length);
+  const cpr=days.map(d=>allCreated.filter(r=>r.prType==='CPR'&&r.createdDate&&sameDay(r.createdDate,d)).length);
+  const other=days.map(d=>allCreated.filter(r=>(!r.prType||r.prType==='OTHER')&&r.createdDate&&sameDay(r.createdDate,d)).length);
   const series=[
     {x:labels,y:pr,name:'PR',type:'bar',marker:{color:'#8b5cf6'},text:pr.map(v=>v||''),textposition:'outside',textfont:{size:11}},
     {x:labels,y:cpr,name:'CPR',type:'bar',marker:{color:'#0ea5e9'},text:cpr.map(v=>v||''),textposition:'outside',textfont:{size:11}}
