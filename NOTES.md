@@ -7352,3 +7352,38 @@ The local HTML render is `evidence/correction01-adnan-email.html`; desktop and 4
 - No email route was invoked before, during, or after deployment.
 - Dashboard implementation commit `e5f86c57e2da98f29fe782ed84998ad29a1d6b4b` was pushed to `main`. [GitHub Pages run 34340336880](https://github.com/Strive-Services-Group/PR-PO-Pipeline-Dashboard/actions/runs/34340336880) passed build, status reporting, and deployment.
 - Cache-busted production downloads matched the committed SHA-256 hashes for both workbooks, and the production `index.html` contains the new `Recorded price`, shared-buyer, and raised-date wording.
+
+# 10 September 2026 missed workbook refresh and release-source investigation
+
+## What I found
+
+- Canonical dashboard repository: `C:\Claude\PR-PO-Pipeline-Dashboard`, clean `main` at `15fb646b85c3e854d1e4ce99fb8ae5caa4093174` before today's workbook generation.
+- `publish-legacy-email-workbooks.yml` is active on the default `main` branch. GitHub recorded no scheduled run on 9 or 10 September. The only unattended run since creation was `34205832241`, started at `2026-09-08T08:41:05Z`; that is outside both its original `*/15 4-5` UTC expression and its current `7,19,31,43 4-5` UTC expression.
+- The 8 September run was delivered late enough that it cannot protect the 06:00 UTC sender. Eight off-boundary attempts still produced zero run records on each of 9 and 10 September. The GitHub scheduled-event service is therefore not an acceptable production trigger for this rebuild.
+- The production Function App HTTP preview was already running the accepted post-8 September email code. Outlook transport headers prove the old-format emails came from Chandan Kumar's separate MAPI-submitted sender. `CLAUDE.md` protects that app, flow, OneDrive, and its tokens; none was changed.
+
+## Exact changes made
+
+- Ran the existing generator against one live `/api/dataset` response and refreshed only `.legacy-email-workbook-content.json`, `legacy-email-workbook-state.json`, `pr.xlsx`, and `po.xlsx`.
+- Live revision: `897143ea9ac3965a190ea7e11960dae46c597cc315c22e0a0a04f76746959fc7`.
+- Generated 1,086 PR attribution rows across 954 source documents and 1,010 PO rows. Delivery classification is exact: 964 named personal attributions plus 122 no-named-owner block attributions equals 1,086, with zero unrouted. There are zero comma-joined owners, zero bare employee-number owners, and zero live actionable PRs missing from the workbook.
+- Created active Codex automation `pr-po-weekday-workbook-refresh` for 08:10 Dubai, Monday-Friday. It dispatches the existing workflow manually, waits for that exact run, and verifies `origin/main`, the public state file, and GitHub Pages. It does not rely on GitHub scheduled events and does not send email.
+
+## Testing performed
+
+- `node --test tests/*.test.js`: 24/24 passed.
+- `python -m unittest discover -s tests -p 'test_*.py'`: 22/22 passed.
+- Parsed every inline script in `index.html`, `divisions.html`, `journey-board.html`, and `journey-live.html` with `vm.Script`: passed after correcting an initially malformed command-line regular expression. The initial command failed before parsing any project script and changed no file.
+- `python scripts/generate_legacy_email_workbooks.py --evidence <temporary file>`: passed against the one live revision above; workbook validation passed and the output reported `contentChanged: true`.
+- `git diff --check`: passed. The site is static and has no package manifest; the JavaScript tests, Python tests, inline-script parse, and live workbook generation are its local production-build equivalent.
+
+## What I did not change
+
+- No dashboard page, email wording, recipient, address, manager copy, BCC, `PRPO_*_MAIL_TO`, `PRPO_PERSONAL_TEST`, token, Graph permission, secret, app setting, mail sender, or 06:00 UTC timer changed.
+- No Dataverse write, dataset-feed change, VAT change, Chandan-controlled change, or email send occurred.
+- The ten morning personal counts were not altered by code in this change; the only dashboard content changes are the normal new live-data workbook snapshot. Live data itself moved after the morning snapshot, so later counts are expected to reflect the newer revision.
+
+## Remaining risk and recommended next step
+
+- The Codex automation depends on this host and its existing GitHub CLI authentication. Its notification policy is failed-runs-only. Keep the manual workflow as the job implementation and treat the automation as the independent trigger until a company-owned cloud scheduler is approved.
+- Chandan's separate sender remains outside this repository and will keep its old template until its owner updates or retires it.
