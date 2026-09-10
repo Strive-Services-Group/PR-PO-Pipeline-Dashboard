@@ -7387,3 +7387,12 @@ The local HTML render is `evidence/correction01-adnan-email.html`; desktop and 4
 
 - The Codex automation depends on this host and its existing GitHub CLI authentication. Its notification policy is failed-runs-only. Keep the manual workflow as the job implementation and treat the automation as the independent trigger until a company-owned cloud scheduler is approved.
 - Chandan's separate sender remains outside this repository and will keep its old template until its owner updates or retires it.
+
+## Publication evidence
+
+- Workbook refresh commit `a00783f4b40dca0d5b229bcbe649fa55a4139261` was pushed to `main`. GitHub Pages run `34447019889` passed build, deploy, and status reporting.
+- A cache-busted public fetch matched revision `897143ea9ac3965a190ea7e11960dae46c597cc315c22e0a0a04f76746959fc7` and generated time `2026-09-10T06:41:01.966Z`.
+- Public `pr.xlsx` was 122,532 bytes with SHA-256 `ee01a8fbeddbce5770361c8845f128d2ecb6395168a21616a883ee5b0eb0132a`, exactly matching the committed file.
+- Public `po.xlsx` was 93,909 bytes with SHA-256 `fa76e128b7a7f598feba9d45c3146853ab6e47a3391952a0301684f8c250039a`, exactly matching the committed file.
+- The state file's semantic content hashes are intentionally different from whole-file SHA-256 values: PR `9fa28d...`, PO `0faf643...`, and routing metadata `da787...`.
+- The independent trigger is active at 08:10 Dubai on weekdays under automation ID `pr-po-weekday-workbook-refresh`. It de-duplicates an already successful same-day dispatch, waits for the exact GitHub run, checks the pushed head and public state/Pages result, and never invokes an email route.
