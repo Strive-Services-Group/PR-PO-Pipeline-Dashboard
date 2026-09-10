@@ -7450,3 +7450,60 @@ All 14 named-owner differences are zero across 954 actionable requisitions. F&O 
 
 - No legacy workbook, generator, Chandan-controlled file, email recipient, email template wording, app setting, secret, token, Graph permission, send-from setting, timer, Dataverse data or `/api/dataset` logic changed.
 - No email was sent.
+
+# Correction 02 — IT-supplied F&O export is the source of record (10 September 2026)
+
+## What I found
+
+- The newest pair present in `Email-Drops` is `Purchase Reques.xlsx` and `Purchase order.xlsx`. Both arrived on 7 September 2026; their file timestamps are 11:34 UTC (15:34 Dubai).
+- The requisition export has 4,394 rows. Exactly 971 are live (`Draft`, `In review`, or `Approved`): 587 have one named `Pending Approver/User`, and 384 have none. Zero export rows contain a comma-joined owner.
+- The purchase-order export has 2,977 rows. Exactly 1,167 have a named `Pending Approver/User`. Zero export rows contain a comma-joined owner.
+- The former pipeline mixed three sources: live F&O headers and lines, development-Dataverse capture tables used to rebuild owner and step, and line sums used as amount. That is why its owner, step, and amount disagreed with the F&O export. The earlier read-only checks confirmed the Function App points its F&O queries at `ifahr-live`, but its capture resource at `operations-ifahr-dev`; no Dataverse write was made.
+- The existing application identity can read the existing `Email-Drops` folder through Microsoft Graph. No new permission or app setting was needed, and no secret value was printed.
+- The previous GitHub schedule ran after the send on 8 and 10 September and did not run on 9 September. A separate project-controlled Codex schedule now dispatches the existing publisher at 07:30 Dubai every weekday, leaving two and a half hours before the 10:00 send. The schedule has been created, but its first weekday occurrence has not happened yet; therefore future run history is not yet available and is not claimed.
+
+## Exact changes
+
+- `scripts/generate_legacy_email_workbooks.py` now copies the export's `Pending Approver/User`, `Step name`, and `Total amount` unchanged. It never splits owners, applies aliases, moves priced work to a department operations holder, or promotes the preparer. A blank owner becomes one explicit `No named owner` value with the preparer shown only as information.
+- `operationsHolderByDepartment` and `ownerAliases` remain in `holder-rule.json` for historical compatibility, but the generator's owner path does not read either field. The hidden `Routing metadata` sheet was removed from new `pr.xlsx` files.
+- `pr.xlsx` contains exactly 971 live requisitions. `po.xlsx` contains all 2,977 exported purchase orders and retains all 1,167 named PO holders.
+- The dashboard data client now carries export provenance. The dashboard and email use the export step to choose the queue and the export total as the displayed amount; line pricing remains additional class information only.
+- Every page/email source notice uses: `These figures come from the Dynamics 365 F&O export supplied by IT, dated 7 September 2026.`
+- Because the named pair is older than the 10 September send, rendered output also uses: `Warning: the latest Dynamics 365 F&O export supplied by IT is dated 7 September 2026, so these figures are older than this morning's send.` A unit test proves that this warning is absent when the export and send are on the same Dubai calendar day.
+
+## Measured acceptance evidence
+
+| Person | Export | Published pr.xlsx | Email | Dashboard | Difference |
+|---|---:|---:|---:|---:|---:|
+| Adnan.Ullah | 246 | 246 | 246 | 246 | 0 |
+| roderick.red | 183 | 183 | 183 | 183 | 0 |
+| Aparna.Pauly | 96 | 96 | 96 | 96 | 0 |
+| Layusha.cleatus | 31 | 31 | 31 | 31 | 0 |
+| dinesh.laxman | 5 | 5 | 5 | 5 | 0 |
+| Gokul.Krishna | 4 | 4 | 4 | 4 | 0 |
+| arman.b | 7 | 7 | 7 | 7 | 0 |
+
+- `shijil.c`, `Shakir Ameer Bakhsh`, and `pramod.c` have zero export-owned rows and zero rows in all four outputs. Every one of the 18 export owner values matches with a zero difference; the complete table is in `evidence/correction02-verification.json`.
+- `CPR-018190`, `CPR-022436`, `CPR-024581`, `CPR-022938`, and `CPR-026145` all show `Adnan.Ullah`.
+- Export totals are preserved: `CPR-018190` AED 5,071.50; `CPR-022436` AED 11,025.00; `CPR-024581` AED 10,962.00.
+- `PR-001144`, `CPR-023916`, `CPR-029482`, and `CPR-030599` all retain `Quotation shared to Operations for confirmation` and the dashboard/email place that exact step in `Operations to Confirm`, regardless of line pricing.
+- Multi-owner counts are zero in exported PR, published PR, exported PO, and published PO. All 971 live PRs are classified: 587 named plus 384 `No named owner`; zero are missing.
+- Published PO named holders are 1,167 against 1,167 in the source export; difference zero.
+
+## Commands and checks run
+
+- Verified both repository branches, clean starting state, remote heads, and the dashboard fast-forward to `e27c44167708469f108902753c24d62d81b9d963` before editing.
+- Read the latest Chandan Teams report in the browser. It confirmed the reconstructed ownership problem; its old department reassignment is superseded by Waqas's Correction 02 instruction.
+- Ran `node --check` on both modified proxy files.
+- Ran `npm test` in `pr-po-proxy`; the first pass exposed one invalid PO test fixture, which was corrected to the real `Accounting Manager` step. The final result is recorded after the production changes.
+- Ran `python -m unittest tests.test_legacy_email_workbook_fallback`; 23/23 passed after expectations were changed from legacy reassignment to exact export preservation.
+- Ran `node --test tests/*.test.js`; 24/24 dashboard tests passed.
+- Ran `node --check dataverse-live.js` and `node --check race-control.js`; both passed.
+- Ran `node tests/verify_correction02.js <Email-Drops>`; every export/workbook/email/dashboard owner difference was zero, the live PR arithmetic was 587 + 384 = 971, multi-owner counts were all zero, and PO holder preservation was 1,167/1,167.
+- Rendered `evidence/correction02-email-preview-adnan.html` and `evidence/correction02-email-preview-procurement.html`. No email was sent.
+
+## Protected items
+
+- The Function App recipient remains a fixed `w.amjad@striveservicesgroup.com`. Messages contain one `toRecipients` entry and no `ccRecipients` or `bccRecipients`; the regression test covers every personal and division message.
+- Chandan Kumar's sender, flow, OneDrive, tokens, recipients, template, and schedule were not changed. Only the `pr.xlsx` and `po.xlsx` content his existing process reads changed.
+- No recipient, secret, token, Graph permission, application setting, send-from setting, or Dataverse record changed. No email was sent.

@@ -1,0 +1,141 @@
+{
+  "datasetRevision": "fo-export-e3d04bd0e5e25b8833ab7fdd9c47a321204e4d38465be3f30912549974c7010a",
+  "sourceState": "LIVE",
+  "routingSource": "live",
+  "pr": {
+    "rows": 971,
+    "sourceDocuments": 971,
+    "columns": [
+      "Purchase requisition",
+      "Quotation reference",
+      "Name",
+      "Preparer",
+      "Status",
+      "Created date",
+      "Submitted date",
+      "Requisition purpose",
+      "Submission Status",
+      "Accepted By/Assign To",
+      "Department",
+      "Location",
+      "Contract",
+      "Request for quotation case",
+      "Total amount",
+      "Pending Approver/User",
+      "Step name",
+      "Step date and time",
+      "Stage reason code"
+    ],
+    "exportTotalAmount": 22632416.88,
+    "sha256": "31cefeb9296a62f4333b01c75e845b64a43ac99255e8b3910bff3d275e99a42b",
+    "routingRecovery": {
+      "non-actionable source rows excluded": 3423,
+      "step not reported source documents": 384,
+      "no named owner source documents": 384,
+      "holder attribution rows": 971,
+      "operations confirmation source documents": 472,
+      "actionable source documents": 971
+    },
+    "operationsConfirmationDocuments": 472,
+    "operationsConfirmationAttributions": 472,
+    "commaJoinedOwners": 0,
+    "bareNumericOwners": 0,
+    "liveActionableMissingFromWorkbook": 0,
+    "sharedRoutingMetadataRows": 0,
+    "classCountsSourceDocuments": {
+      "NOT_REPORTED": 457,
+      "ACTIVE_LINES_PRICED": 472,
+      "ACTIVE_LINES_NOT_FULLY_PRICED": 42
+    },
+    "classCountsWorkbookDocuments": {
+      "NOT_REPORTED": 457,
+      "ACTIVE_LINES_PRICED": 472,
+      "ACTIVE_LINES_NOT_FULLY_PRICED": 42
+    },
+    "delivery": {
+      "namedPersonalEmailAttributions": 547,
+      "noNamedOwnerBlockAttributions": 424,
+      "unaddressableAttributions": 40,
+      "noActiveOwnerAttributions": 31,
+      "noEmailAddressAttributions": 9,
+      "ownerNotRecordedAttributions": 384,
+      "unroutedAttributions": 0,
+      "byHolderAndReason": {
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: Dinesh Laxman Laxman | owner not recorded in F&O": 71,
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: D365CRM ADMIN | owner not recorded in F&O": 253,
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: Zaheer Ahmed Ameer | owner not recorded in F&O": 16,
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: Gokul Krishna Pillai | owner not recorded in F&O": 21,
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: Shakir Ameer Bakhsh | owner not recorded in F&O": 5,
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: Ahamed Noorullah Mohamed | owner not recorded in F&O": 3,
+        "D365CRMADMIN | no email address on file": 4,
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: Shijil Choyaprath Chandran | owner not recorded in F&O": 12,
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: Sirinikhil | owner not recorded in F&O": 1,
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: Abdul Basit Raza | owner not recorded in F&O": 1,
+        "Layusha.cleatus | no active owner": 31,
+        "No named owner — Pending Approver/User not recorded in F&O export; preparer: Joe Orlain Jamisola | owner not recorded in F&O": 1,
+        "Shaik.baba | no email address on file": 1,
+        "admin.hk | no email address on file": 1,
+        "Nathan.Buys | no email address on file": 1,
+        "Qasim.Jahangir | no email address on file": 1,
+        "ruben.senesan | no email address on file": 1
+      }
+    }
+  },
+  "po": {
+    "rows": 2977,
+    "columns": [
+      "Purchase order",
+      "Vendor account",
+      "Invoice account",
+      "Vendor name",
+      "Purchase type",
+      "Approval status",
+      "Purchase order status",
+      "Currency",
+      "Requested receipt date",
+      "Created date and time",
+      "Purchase requisition",
+      "RFQ number",
+      "Total amount",
+      "Department",
+      "Location",
+      "Contract",
+      "Pending Approver/User",
+      "Step name",
+      "Step date and time",
+      "Created by"
+    ],
+    "exportTotalAmount": 36836401.82,
+    "sha256": "23dad1780f4c1fcc0ca100adea21ffe4868aa69cf76a996d564368afe5b0ac34",
+    "routingRecovery": {
+      "holder attribution rows": 2977,
+      "source documents": 2977
+    },
+    "commaJoinedOwners": 0
+  },
+  "amountBasis": "Total amount copied unchanged from the IT-supplied F&O export",
+  "datePolicy": "export dates copied unchanged; unreported dates remain blank",
+  "routingPolicy": "one Pending Approver/User copied unchanged from the IT-supplied F&O export; no aliases, splitting, department reassignment, or preparer promotion",
+  "exportAuthority": {
+    "prFile": "Purchase Reques.xlsx",
+    "poFile": "Purchase order.xlsx",
+    "exportDateUtc": "2026-09-07T11:34:18.901362Z"
+  },
+  "outputNote": "These figures come from the Dynamics 365 F&O export supplied by IT; owner, step and total are reproduced without inference.",
+  "contentChanged": true,
+  "noExactOldEquivalent": {
+    "PR": {
+      "Sourcing": "consolidated live stage; mapped to legacy Procurement",
+      "Priced — awaiting approval": "live priced signal; mapped to legacy Operations to Confirm",
+      "Approval — unmapped element": "shown as Step not reported by F&O",
+      "(blank)": "shown as Step not reported by F&O"
+    },
+    "PO": {
+      "Not yet sent": "authoritative F&O state; mapped to legacy Procurement",
+      "Approval — unmapped element": "displayed fallback; mapped to legacy Procurement",
+      "Receipt posted": "routed by Confirmed plus Received to Pending Invoicing",
+      "Invoiced": "excluded by the open-pipeline rule",
+      "STAGE_NOT_EVIDENCED": "must never be open; generation fails if it is"
+    }
+  }
+}

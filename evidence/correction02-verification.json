@@ -1,0 +1,240 @@
+{
+  "export": {
+    "prFile": "Purchase Reques.xlsx",
+    "poFile": "Purchase order.xlsx",
+    "date": "7 September 2026",
+    "livePr": 971,
+    "po": 2977
+  },
+  "classification": {
+    "named": 587,
+    "noNamedOwner": 384,
+    "unclassified": 0
+  },
+  "multiOwner": {
+    "exportPr": 0,
+    "publishedPr": 0,
+    "exportPo": 0,
+    "publishedPo": 0
+  },
+  "comparison": [
+    {
+      "person": "Abdul.Muqeet",
+      "export": 1,
+      "publishedPrXlsx": 1,
+      "email": 1,
+      "dashboard": 1,
+      "difference": 0
+    },
+    {
+      "person": "Adnan.Ullah",
+      "export": 246,
+      "publishedPrXlsx": 246,
+      "email": 246,
+      "dashboard": 246,
+      "difference": 0
+    },
+    {
+      "person": "Aparna.Pauly",
+      "export": 96,
+      "publishedPrXlsx": 96,
+      "email": 96,
+      "dashboard": 96,
+      "difference": 0
+    },
+    {
+      "person": "Ayman.ismail",
+      "export": 1,
+      "publishedPrXlsx": 1,
+      "email": 1,
+      "dashboard": 1,
+      "difference": 0
+    },
+    {
+      "person": "D365CRMADMIN",
+      "export": 4,
+      "publishedPrXlsx": 4,
+      "email": 4,
+      "dashboard": 4,
+      "difference": 0
+    },
+    {
+      "person": "Gokul.Krishna",
+      "export": 4,
+      "publishedPrXlsx": 4,
+      "email": 4,
+      "dashboard": 4,
+      "difference": 0
+    },
+    {
+      "person": "Judhin.prabhakar",
+      "export": 1,
+      "publishedPrXlsx": 1,
+      "email": 1,
+      "dashboard": 1,
+      "difference": 0
+    },
+    {
+      "person": "Layusha.cleatus",
+      "export": 31,
+      "publishedPrXlsx": 31,
+      "email": 31,
+      "dashboard": 31,
+      "difference": 0
+    },
+    {
+      "person": "Mohammad.w",
+      "export": 2,
+      "publishedPrXlsx": 2,
+      "email": 2,
+      "dashboard": 2,
+      "difference": 0
+    },
+    {
+      "person": "Nathan.Buys",
+      "export": 1,
+      "publishedPrXlsx": 1,
+      "email": 1,
+      "dashboard": 1,
+      "difference": 0
+    },
+    {
+      "person": "Qasim.Jahangir",
+      "export": 1,
+      "publishedPrXlsx": 1,
+      "email": 1,
+      "dashboard": 1,
+      "difference": 0
+    },
+    {
+      "person": "Shaik.baba",
+      "export": 1,
+      "publishedPrXlsx": 1,
+      "email": 1,
+      "dashboard": 1,
+      "difference": 0
+    },
+    {
+      "person": "admin.hk",
+      "export": 1,
+      "publishedPrXlsx": 1,
+      "email": 1,
+      "dashboard": 1,
+      "difference": 0
+    },
+    {
+      "person": "arman.b",
+      "export": 7,
+      "publishedPrXlsx": 7,
+      "email": 7,
+      "dashboard": 7,
+      "difference": 0
+    },
+    {
+      "person": "dinesh.laxman",
+      "export": 5,
+      "publishedPrXlsx": 5,
+      "email": 5,
+      "dashboard": 5,
+      "difference": 0
+    },
+    {
+      "person": "it.solutions",
+      "export": 1,
+      "publishedPrXlsx": 1,
+      "email": 1,
+      "dashboard": 1,
+      "difference": 0
+    },
+    {
+      "person": "roderick.red",
+      "export": 183,
+      "publishedPrXlsx": 183,
+      "email": 183,
+      "dashboard": 183,
+      "difference": 0
+    },
+    {
+      "person": "ruben.senesan",
+      "export": 1,
+      "publishedPrXlsx": 1,
+      "email": 1,
+      "dashboard": 1,
+      "difference": 0
+    }
+  ],
+  "fiveOwners": [
+    {
+      "number": "CPR-018190",
+      "owner": "Adnan.Ullah",
+      "step": "Unit prices updated in PR lines"
+    },
+    {
+      "number": "CPR-022436",
+      "owner": "Adnan.Ullah",
+      "step": "PurchReqReviewTask"
+    },
+    {
+      "number": "CPR-024581",
+      "owner": "Adnan.Ullah",
+      "step": "Unit prices updated in PR lines"
+    },
+    {
+      "number": "CPR-022938",
+      "owner": "Adnan.Ullah",
+      "step": "Unit prices updated in PR lines"
+    },
+    {
+      "number": "CPR-026145",
+      "owner": "Adnan.Ullah",
+      "step": "Unit prices updated in PR lines"
+    }
+  ],
+  "threeAmounts": [
+    {
+      "number": "CPR-018190",
+      "amount": 5071.5
+    },
+    {
+      "number": "CPR-022436",
+      "amount": 11025
+    },
+    {
+      "number": "CPR-024581",
+      "amount": 10962
+    }
+  ],
+  "operationSteps": [
+    {
+      "number": "PR-001144",
+      "owner": "Layusha.cleatus",
+      "step": "Quotation shared to Operations for confirmation"
+    },
+    {
+      "number": "CPR-023916",
+      "owner": "Adnan.Ullah",
+      "step": "Quotation shared to Operations for confirmation"
+    },
+    {
+      "number": "CPR-029482",
+      "owner": "Aparna.Pauly",
+      "step": "Quotation shared to Operations for confirmation"
+    },
+    {
+      "number": "CPR-030599",
+      "owner": "Aparna.Pauly",
+      "step": "Quotation shared to Operations for confirmation"
+    }
+  ],
+  "poNamedHolders": {
+    "export": 1167,
+    "published": 1167,
+    "difference": 0
+  },
+  "provenanceSentence": "These figures come from the Dynamics 365 F&O export supplied by IT, dated 7 September 2026.",
+  "staleWarning": "Warning: the latest Dynamics 365 F&O export supplied by IT is dated 7 September 2026, so these figures are older than this morning's send.",
+  "previews": [
+    "evidence/correction02-email-preview-adnan.html",
+    "evidence/correction02-email-preview-procurement.html"
+  ]
+}

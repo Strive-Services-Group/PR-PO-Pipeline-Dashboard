@@ -46,8 +46,8 @@ DEFAULT_DATASET_URL = (
     "https://ssg-prpo-proxy-h4cvfegaduftedhz.uaenorth-01.azurewebsites.net/api/dataset"
 )
 OUTPUT_NOTE = (
-    "Temporary email compatibility output: verified PR/PO routing snapshot "
-    "with current live ex-VAT amounts."
+    "These figures come from the Dynamics 365 F&O export supplied by IT; "
+    "owner, step and total are reproduced without inference."
 )
 FIXED_ZIP_TIME = (2026, 9, 7, 0, 0, 0)
 # Snapshot consumed by the successful 7 September 10:00 Dubai email run.
@@ -103,6 +103,37 @@ def fetch_dataset(url: str) -> dict:
     if not payload.get("revision"):
         raise RuntimeError("dataset revision is missing")
     return payload
+
+
+def read_export_rows(path: Path) -> list[dict]:
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    sheet = workbook.active
+    values = sheet.iter_rows(values_only=True)
+    headers = [str(value or "").strip() for value in next(values)]
+    return [dict(zip(headers, row)) for row in values if any(value not in (None, "") for value in row)]
+
+
+def load_export_pair(directory: Path) -> dict:
+    pr_candidates = sorted(directory.glob("Purchase Reques*.xlsx"), key=lambda path: path.stat().st_mtime, reverse=True)
+    po_candidates = sorted(directory.glob("Purchase order*.xlsx"), key=lambda path: path.stat().st_mtime, reverse=True)
+    if not pr_candidates or not po_candidates:
+        raise RuntimeError(f"F&O export pair is missing from {directory}")
+    pr_path, po_path = pr_candidates[0], po_candidates[0]
+    export_timestamp = min(pr_path.stat().st_mtime, po_path.stat().st_mtime)
+    export_date = datetime.fromtimestamp(export_timestamp, timezone.utc).isoformat().replace("+00:00", "Z")
+    revision = hashlib.sha256(pr_path.read_bytes() + po_path.read_bytes()).hexdigest()
+    return {
+        "sourceState": "LIVE",
+        "revision": f"fo-export-{revision}",
+        "generatedAt": export_date,
+        "exportAuthority": {
+            "prFile": pr_path.name,
+            "poFile": po_path.name,
+            "exportDateUtc": export_date,
+        },
+        "pr": {"rows": read_export_rows(pr_path)},
+        "po": {"rows": read_export_rows(po_path)},
+    }
 
 
 def parse_datetime(value):
@@ -223,34 +254,19 @@ def fallback_po_rows(live_rows: list[dict], legacy_rows: list[dict]) -> tuple[li
 
 
 def resolve_owner_name(value) -> tuple[str, bool]:
-    """Resolve one holder token and state whether it identifies a real person."""
+    """Return one export holder unchanged, or an explicit no-owner label."""
     raw = str(value or "").strip()
     if not raw:
         return NOT_RECORDED, False
-    if raw.isdigit():
-        mapped = EMPLOYEE_HOLDER_MAP["employees"].get(raw)
-        if not mapped:
-            return f"employee number {raw} — name not resolved", False
-        raw = mapped
-    if " ".join(raw.lower().split()) in SYSTEM_ACCOUNT_KEYS:
-        return f"{NO_NAMED_OWNER} — {raw}", False
-    key = " ".join(raw.lower().split())
-    return HOLDER_RULE["ownerAliases"].get(key, raw), True
+    if "," in raw:
+        raise RuntimeError("F&O export data fault: more than one owner was supplied in one record")
+    return raw, True
 
 
 def split_holder_names(value) -> list[str]:
-    """Return named holders once each, or one explicit unresolved-owner label."""
-    named = []
-    unresolved = []
-    seen = set()
-    for part in str(value or "").split(","):
-        name, is_named = resolve_owner_name(part)
-        key = " ".join(name.lower().split())
-        if key in seen:
-            continue
-        seen.add(key)
-        (named if is_named else unresolved).append(name)
-    return named or unresolved or [NOT_RECORDED]
+    """Keep the export's single owner; never split or fan out."""
+    name, _ = resolve_owner_name(value)
+    return [name]
 
 
 def work_class(row: dict) -> tuple[str, dict]:
@@ -278,21 +294,18 @@ def work_class(row: dict) -> tuple[str, dict]:
 
 
 def pr_holder_route(row: dict) -> dict:
-    """Apply the shared Stage-reason classification and holder rule."""
+    """Preserve the export owner and step; pricing remains extra information only."""
     code, class_rule = work_class(row)
     stage = str(row.get("Step name") or "").strip()
-    department = str(row.get("Department") or "").strip()
-    if class_rule["holderMode"] == "departmentOperations":
-        mapped = HOLDER_RULE["operationsHolderByDepartment"].get(department)
-        names = (
-            split_holder_names(mapped)
-            if mapped else
-            [f"{NO_NAMED_OWNER} — no operations person mapped for {department or 'department not reported'}"]
-        )
-    elif class_rule["holderMode"] == "preparer":
-        names = split_holder_names(row.get("Preparer"))
+    owner = str(row.get("Pending Approver/User") or "").strip()
+    if "," in owner:
+        number = str(row.get("Purchase requisition") or "").strip()
+        raise RuntimeError(f"F&O export data fault: {number} has more than one owner")
+    if owner:
+        names = [owner]
     else:
-        names = split_holder_names(row.get("Pending Approver/User"))
+        preparer = str(row.get("Preparer") or "").strip() or "not recorded"
+        names = [f"{NO_NAMED_OWNER} — Pending Approver/User not recorded in F&O export; preparer: {preparer}"]
     return {
         "stage": stage or HOLDER_RULE["unreportedStage"],
         "stepReported": bool(stage),
@@ -301,12 +314,12 @@ def pr_holder_route(row: dict) -> dict:
         "classAction": class_rule["action"],
         "headerBucket": class_rule["headerBucket"],
         "holders": names,
-        "workbookStep": class_rule["workbookStep"],
+        "workbookStep": stage,
     }
 
 
 def live_pr_rows(rows: list[dict]) -> tuple[list[dict], Counter]:
-    """Create one legacy-email attribution row per live actionable PR holder."""
+    """Create exactly one output row per live export requisition."""
     output = []
     evidence = Counter()
     seen_documents = set()
@@ -324,38 +337,38 @@ def live_pr_rows(rows: list[dict]) -> tuple[list[dict], Counter]:
         route = pr_holder_route(row)
         if not route["stepReported"]:
             evidence["step not reported source documents"] += 1
-        if route["headerBucket"] == "Operations to Confirm":
+        if route["stage"] in {"Quotation shared to Operations for confirmation", "Unit prices updated in PR lines"}:
             evidence["operations confirmation source documents"] += 1
         if any(holder == NOT_RECORDED or holder.startswith(NO_NAMED_OWNER) or holder.startswith("employee number ") for holder in route["holders"]):
             evidence["no named owner source documents"] += 1
-            if route["classCode"] == "ACTIVE_LINES_PRICED":
-                evidence[f"operations mapping missing: {str(row.get('Department') or '').strip() or 'department not reported'}"] += 1
-        for holder in route["holders"]:
-            translated = {column: row.get(column) for column in PR_COLUMNS}
-            translated["Pending Approver/User"] = holder
-            translated["Step name"] = route["workbookStep"]
-            # The frozen sender selects a different holder column for Draft and
-            # Approved. Keep all three compatibility fields aligned to one rule.
-            translated["Preparer"] = holder
-            translated["Accepted By/Assign To"] = holder
-            translated["Stage reason code"] = route["classCode"]
-            output.append(translated)
-            evidence["holder attribution rows"] += 1
+        translated = {column: row.get(column) for column in PR_COLUMNS}
+        translated["Pending Approver/User"] = route["holders"][0]
+        translated["Step name"] = route["workbookStep"]
+        translated["Stage reason code"] = route["classCode"]
+        output.append(translated)
+        evidence["holder attribution rows"] += 1
     evidence["actionable source documents"] = len(seen_documents)
     return output, evidence
 
 
 def live_po_rows(rows: list[dict]) -> tuple[list[dict], Counter]:
-    """Use current live PO routing and keep each holder cell singular."""
-    routed, evidence = dashboard_po_rows(rows)
+    """Reproduce every PO export row and its single holder unchanged."""
+    evidence = Counter()
     output = []
-    for row in routed:
-        holders = split_holder_names(row.get("Pending Approver/User")) or [NOT_RECORDED]
-        for holder in holders:
-            translated = dict(row)
-            translated["Pending Approver/User"] = holder
-            output.append(translated)
+    for row in rows:
+        number = str(row.get("Purchase order") or "").strip()
+        if not number:
+            continue
+        owner = str(row.get("Pending Approver/User") or "").strip()
+        if "," in owner:
+            raise RuntimeError(f"F&O export data fault: {number} has more than one owner")
+        translated = {column: row.get(column) for column in PO_COLUMNS}
+        if not owner:
+            created_by = str(row.get("Created by") or "").strip() or "not recorded"
+            translated["Pending Approver/User"] = f"{NO_NAMED_OWNER} — Pending Approver/User not recorded in F&O export; created by: {created_by}"
+        output.append(translated)
     evidence["holder attribution rows"] = len(output)
+    evidence["source documents"] = len(output)
     return output, evidence
 
 
@@ -500,8 +513,7 @@ def delivery_classification(owner) -> tuple[str, str | None]:
     """Return the only email route for one attribution row and any issue reason."""
     raw = str(owner or "").strip()
     key = " ".join(raw.lower().split())
-    canonical = HOLDER_RULE["ownerAliases"].get(key, raw)
-    canonical_key = " ".join(canonical.lower().split())
+    canonical_key = key
     if is_no_named_owner(raw):
         return "no named owner", "owner not recorded in F&O"
     if canonical_key in INACTIVE_USERNAMES:
@@ -541,6 +553,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset-url", default=DEFAULT_DATASET_URL)
     parser.add_argument("--dataset-json")
+    parser.add_argument("--export-dir", help="Read the newest IT-supplied F&O export pair from this folder")
     parser.add_argument("--output-dir", default=".")
     parser.add_argument("--state-file", default=".legacy-email-workbook-content.json")
     parser.add_argument("--evidence")
@@ -550,7 +563,12 @@ def main() -> None:
         help="Use current live routing by default; legacy-snapshot is emergency-only.",
     )
     args = parser.parse_args()
-    dataset = json.loads(Path(args.dataset_json).read_text(encoding="utf-8")) if args.dataset_json else fetch_dataset(args.dataset_url)
+    if args.export_dir:
+        dataset = load_export_pair(Path(args.export_dir))
+    elif args.dataset_json:
+        dataset = json.loads(Path(args.dataset_json).read_text(encoding="utf-8"))
+    else:
+        dataset = fetch_dataset(args.dataset_url)
     if dataset.get("sourceState") != "LIVE":
         raise RuntimeError("refusing to generate from a stale or failed dataset")
     if args.routing_source == "legacy-snapshot":
@@ -561,16 +579,13 @@ def main() -> None:
     else:
         pr_rows, pr_excluded = live_pr_rows(dataset["pr"]["rows"])
         po_rows, po_excluded = live_po_rows(dataset["po"]["rows"])
-    routing_metadata = (
-        shared_routing_metadata(dataset["pr"]["rows"])
-        if args.routing_source == "live" else []
-    )
+    routing_metadata = []
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     pr_path, po_path = output_dir / "pr.xlsx", output_dir / "po.xlsx"
     state_path = output_dir / args.state_file
     content_state = {
-        "formatVersion": 5,
+        "formatVersion": 6,
         "prContentSha256": content_hash(pr_rows, PR_COLUMNS),
         "poContentSha256": content_hash(po_rows, PO_COLUMNS),
         "routingMetadataSha256": content_hash(
@@ -592,19 +607,20 @@ def main() -> None:
     content_changed = previous_content != content_state or not pr_path.exists() or not po_path.exists()
     if content_changed:
         pr_path.write_bytes(workbook_bytes(
-            pr_rows, PR_COLUMNS, PR_WIDTHS, PR_DATE_COLUMNS, routing_metadata
+            pr_rows, PR_COLUMNS, PR_WIDTHS, PR_DATE_COLUMNS
         ))
         po_path.write_bytes(workbook_bytes(po_rows, PO_COLUMNS, PO_WIDTHS, PO_DATE_COLUMNS))
     state = {
         **content_state,
         "datasetRevision": dataset["revision"],
         "datasetGeneratedAt": dataset.get("generatedAt"),
+        "exportAuthority": dataset.get("exportAuthority"),
     }
     state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
     (output_dir / "legacy-email-workbook-state.json").write_text(
         json.dumps(state, indent=2) + "\n", encoding="utf-8"
     )
-    validate_saved(pr_path, PR_COLUMNS, len(pr_rows), routing_metadata)
+    validate_saved(pr_path, PR_COLUMNS, len(pr_rows))
     validate_saved(po_path, PO_COLUMNS, len(po_rows))
     source_class_counts = Counter()
     for row in dataset["pr"]["rows"]:
@@ -634,7 +650,7 @@ def main() -> None:
         "routingSource": args.routing_source,
         "pr": {
             "rows": len(pr_rows), "sourceDocuments": pr_excluded["actionable source documents"], "columns": PR_COLUMNS,
-            "amountExVat": round(sum(float(row.get("Total amount") or 0) for row in pr_rows), 2),
+            "exportTotalAmount": round(sum(float(row.get("Total amount") or 0) for row in pr_rows), 2),
             "sha256": sha256(pr_path), "routingRecovery": dict(pr_excluded),
             "operationsConfirmationDocuments": len({
                 str(row.get("Purchase requisition") or "").strip().upper()
@@ -668,17 +684,14 @@ def main() -> None:
         },
         "po": {
             "rows": len(po_rows), "columns": PO_COLUMNS,
-            "amountExVat": round(sum(float(row.get("Total amount") or 0) for row in po_rows), 2),
+            "exportTotalAmount": round(sum(float(row.get("Total amount") or 0) for row in po_rows), 2),
             "sha256": sha256(po_path), "routingRecovery": dict(po_excluded),
             "commaJoinedOwners": sum("," in str(row.get("Pending Approver/User") or "") for row in po_rows),
         },
-        "amountBasis": "live F&O active-line values excl. VAT",
-        "datePolicy": "current live dataset clocks; unreported clocks remain blank",
-        "routingPolicy": (
-            "current live dataset plus shared holder, work-class, employee, inactive-user, and email-address rules"
-            if args.routing_source == "live" else
-            f"emergency legacy snapshot {LEGACY_EMAIL_COMMIT} with current live ex-VAT amounts"
-        ),
+        "amountBasis": "Total amount copied unchanged from the IT-supplied F&O export",
+        "datePolicy": "export dates copied unchanged; unreported dates remain blank",
+        "routingPolicy": "one Pending Approver/User copied unchanged from the IT-supplied F&O export; no aliases, splitting, department reassignment, or preparer promotion",
+        "exportAuthority": dataset.get("exportAuthority"),
         "outputNote": OUTPUT_NOTE,
         "contentChanged": content_changed,
         "noExactOldEquivalent": NO_EXACT_OLD_EQUIVALENT,
