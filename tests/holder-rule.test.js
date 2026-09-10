@@ -26,7 +26,7 @@ assert.deepEqual(JSON.parse(employeeLiteral[1]), employeeMap, 'dashboard and wor
 const inactiveLiteral = html.match(/const INACTIVE_USERNAMES = new Set\((\[.*\])\);/);
 assert.ok(inactiveLiteral, 'dashboard inactive-user literal not found');
 assert.deepEqual(JSON.parse(inactiveLiteral[1]), inactive, 'dashboard inactive-user list drifted');
-assert.deepEqual(race.OWNER_ALIASES, rule.ownerAliases, 'Race Control owner aliases drifted');
+assert.deepEqual(race.OWNER_ALIASES, {}, 'Race Control must not alias an F&O owner');
 const divisionScript = divisions.match(/<script>\s*([\s\S]*?)<\/script>\s*<\/body>/);
 assert.ok(divisionScript, 'division dashboard script not found');
 new Function(divisionScript[1]);
@@ -59,7 +59,7 @@ assert.equal(shared.sourceShared, true);
 assert.deepEqual(Array.from(shared.liveBuyers), ['Adnan.Ullah', 'roderick.red']);
 assert.doesNotMatch(shared.sharedLabel, /Layusha/i);
 assert.deepEqual(Array.from(build({ 'Pending Approver/User': 'Aparna.Pauly' }).holders), ['Aparna.Pauly']);
-assert.deepEqual(Array.from(build({ 'Pending Approver/User': '' }).holders), ['not recorded']);
+assert.deepEqual(Array.from(build({ 'Pending Approver/User': '' }).holders), ['No named owner — Pending Approver/User not recorded in F&O']);
 
 const unreported = build({ 'Step name': '', 'Stage reason code': 'UNMAPPED_ELEMENT', 'Pending Approver/User': 'roderick.red' });
 assert.equal(unreported.hdrBucket, 'Step not reported by F&O');
@@ -69,16 +69,22 @@ assert.equal(unreported._isUnmapped, false);
 
 const priced = build({ 'Step name': 'Priced — awaiting approval', 'Stage reason code': 'ACTIVE_LINES_PRICED', 'Pending Approver/User': 'Adnan.Ullah' });
 assert.equal(priced.hdrBucket, 'Operations to Confirm');
-assert.deepEqual(Array.from(priced.holders), ['dinesh.laxman']);
-assert.deepEqual(Array.from(build({ 'Step name': 'Priced — awaiting approval', 'Stage reason code': 'ACTIVE_LINES_PRICED', 'Department': 'Surveying Services', 'Pending Approver/User': 'Aparna.Pauly' }).holders), ['No named owner — no operations person mapped for Surveying Services']);
+assert.deepEqual(Array.from(priced.holders), ['Adnan.Ullah']);
+assert.deepEqual(Array.from(build({ 'Step name': 'Priced — awaiting approval', 'Stage reason code': 'ACTIVE_LINES_PRICED', 'Department': 'Surveying Services', 'Pending Approver/User': 'Aparna.Pauly' }).holders), ['Aparna.Pauly']);
 
 const mappedEmployee = build({ 'Step name': '', 'Stage reason code': 'NO_CURRENT_WORK_ITEM', 'Preparer': '310523', 'Pending Approver/User': '' });
-assert.deepEqual(Array.from(mappedEmployee.holders), ['dinesh.laxman']);
-assert.notEqual(mappedEmployee.pendingUser, 'not recorded');
+assert.deepEqual(Array.from(mappedEmployee.holders), ['No named owner — Pending Approver/User not recorded in F&O']);
+assert.equal(mappedEmployee.pendingUser, 'No named owner — Pending Approver/User not recorded in F&O');
 const missingEmployee = build({ 'Step name': '', 'Stage reason code': 'NO_CURRENT_WORK_ITEM', 'Preparer': '999999', 'Pending Approver/User': '' });
-assert.deepEqual(Array.from(missingEmployee.holders), ['employee number 999999 — name not resolved']);
+assert.deepEqual(Array.from(missingEmployee.holders), ['No named owner — Pending Approver/User not recorded in F&O']);
 const systemEmployee = build({ 'Step name': '', 'Stage reason code': 'NO_CURRENT_WORK_ITEM', 'Preparer': '000000', 'Pending Approver/User': '' });
-assert.deepEqual(Array.from(systemEmployee.holders), ['No named owner — D365CRM ADMIN']);
+assert.deepEqual(Array.from(systemEmployee.holders), ['No named owner — Pending Approver/User not recorded in F&O']);
+
+for (const status of ['Draft', 'In review', 'Approved']) {
+  const sourceOnly = build({ Status: status, 'Stage reason code': 'ACTIVE_LINES_PRICED', 'Pending Approver/User': 'FNO.Owner', Preparer: 'invented.preparer', 'Accepted By/Assign To': 'invented.accepted' });
+  assert.deepEqual(Array.from(sourceOnly.holders), ['FNO.Owner']);
+}
+assert.deepEqual(Array.from(build({ 'Pending Approver/User': 'Dinesh Laxman Laxman' }).holders), ['Dinesh Laxman Laxman']);
 
 for(const [code, cfg] of Object.entries(workRule.classes)){
   const rec = build({ 'Stage reason code': code, 'Step name': code==='ACTIVE_LINES_PRICED'?'Priced — awaiting approval':'', 'Preparer':'310523' });

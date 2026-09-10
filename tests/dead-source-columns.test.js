@@ -23,12 +23,10 @@ for (const file of displaySources) {
   }
 }
 
-// Preparer is the one formerly unusable field that now has an authorised,
-// mapped use: routing NO_CURRENT_WORK_ITEM rows to a resolved employee name.
-// It must not leak into another display or calculation path.
+// Holder identity comes only from F&O Pending Approver/User. Preparer and
+// accepted/assigned fields must not leak into display or calculation paths.
 const indexSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-assert.equal((indexSource.match(/r\['Preparer'\]/g) || []).length, 1);
-assert.match(indexSource, /holderMode==='preparer'\)holders=holderNames\(r\['Preparer'\]\)/);
+assert.equal(indexSource.includes("r['Preparer']"), false);
 for (const file of ['divisions.html', 'race-control.js']) {
   assert.equal(fs.readFileSync(path.join(root, file), 'utf8').includes('Preparer'), false);
 }

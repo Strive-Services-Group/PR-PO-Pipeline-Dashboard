@@ -7396,3 +7396,57 @@ The local HTML render is `evidence/correction01-adnan-email.html`; desktop and 4
 - Public `po.xlsx` was 93,909 bytes with SHA-256 `fa76e128b7a7f598feba9d45c3146853ab6e47a3391952a0301684f8c250039a`, exactly matching the committed file.
 - The state file's semantic content hashes are intentionally different from whole-file SHA-256 values: PR `9fa28d...`, PO `0faf643...`, and routing metadata `da787...`.
 - The independent trigger is active at 08:10 Dubai on weekdays under automation ID `pr-po-weekday-workbook-refresh`. It de-duplicates an already successful same-day dispatch, waits for the exact GitHub run, checks the pushed head and public state/Pages result, and never invokes an email route.
+
+# 10 September 2026 F&O owner-of-record dashboard correction
+
+## Source and protected boundary
+
+- Canonical dashboard checkout was clean `main` at `187c759320dbd81fa0dd385ff72cd9612f65b2f2`, equal to `origin/main`, before this change.
+- One saved live dataset revision was used: `a80bb2da0eb478efa17f19fd9c3d2a343af476a3ab0e182f9206a9d000109bce`, generated `2026-09-10T07:23:53.999Z`.
+- The dashboard already loads `/api/dataset` directly. Its defect was the browser-side priced-item owner reconstruction and later Race Control aliasing.
+- Legacy workbooks and their generator belong to Chandan's protected path. They were not changed, regenerated or used as reconciliation evidence.
+
+## Exact changes
+
+- `index.html` now takes every actionable PR holder from `Pending Approver/User`, splits comma-joined names and case-insensitively de-duplicates them. It no longer uses department operations, Preparer, Accepted By/Assign To, employee mapping or aliases for holder identity.
+- `divisions.html` uses the same exact F&O holder field and no alias/reassignment.
+- `race-control.js` keeps exact F&O names and includes Director/CEO pending holders instead of removing them from the person table.
+- Blank or numeric pending-owner values remain explicit no-named-owner records; no person is invented.
+- Added `tests/reconcile_fno_owner_counts.js`, which independently calculates counts from F&O, the Function sender path and the dashboard path and fails on any difference or extra person.
+
+## Reconciliation table
+
+| person | F&O count | our count | dashboard count | difference |
+|---|---:|---:|---:|---:|
+| Adnan.Ullah | 428 | 428 | 428 | 0 |
+| roderick.red | 307 | 307 | 307 | 0 |
+| Layusha.cleatus | 140 | 140 | 140 | 0 |
+| Aparna.Pauly | 133 | 133 | 133 | 0 |
+| arman.b | 10 | 10 | 10 | 0 |
+| Judhin.prabhakar | 3 | 3 | 3 | 0 |
+| Mahmud.hasan | 2 | 2 | 2 | 0 |
+| Mohammad.w | 2 | 2 | 2 | 0 |
+| Dan.roberts | 1 | 1 | 1 | 0 |
+| Ernie.Lavalle | 1 | 1 | 1 | 0 |
+| Firas.altamimi | 1 | 1 | 1 | 0 |
+| Muhammad.faisal | 1 | 1 | 1 | 0 |
+| Nathan.Buys | 1 | 1 | 1 | 0 |
+| ruben.senesan | 1 | 1 | 1 | 0 |
+
+All 14 named-owner differences are zero across 954 actionable requisitions. F&O has 109 actionable documents without a named pending owner; they remain outside person totals.
+
+## Commands and tests
+
+- `node --test tests/*.test.js`: 24/24 passed.
+- `node tests/holder-rule.test.js`, `node tests/race-control.test.js`, and `node tests/dead-source-columns.test.js`: passed.
+- `python -m unittest discover -s tests -p 'test_*.py'`: 22/22 passed. These legacy-generator tests used temporary directories and did not regenerate committed workbooks.
+- Every inline script in `index.html`, `divisions.html`, `journey-board.html` and `journey-live.html` parsed with `vm.Script`; this is the static production-build check.
+- One combined verification command over-escaped its JavaScript regular-expression literal and failed before parsing a project script. Re-running the parser with `RegExp(...)` passed all four pages; no file changed during either command.
+- `node tests/reconcile_fno_owner_counts.js C:\Windows\Temp\prpo-fno-owner-20260910-0705.json C:\Users\w.amjad\Documents\GitHub\pr-po-proxy`: passed with every difference zero.
+- The initial dashboard test run exposed a mistaken attempted JSON preservation edit and a changed Race Control expectation. The JSON files were restored byte-for-byte to `HEAD`, the test expectation was corrected to the authorised exact-name behavior, and the complete suite then passed.
+- `git diff --check` passed.
+
+## What did not change
+
+- No legacy workbook, generator, Chandan-controlled file, email recipient, email template wording, app setting, secret, token, Graph permission, send-from setting, timer, Dataverse data or `/api/dataset` logic changed.
+- No email was sent.

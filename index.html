@@ -637,37 +637,31 @@ const INACTIVE_USERNAMES = new Set(["layusha.cleatus"]);
 const PR_STEPS_MAP = Object.fromEntries(Object.keys(HOLDER_RULE.stageRules).map(name=>[name,name]));
 const PO_STEPS_MAP = {"Advance payment request submitted (if applicable)":"Procurement","Procurement Manager":"Procurement","Accounting Manager":"Finance","Finance and Accounts Director":"Director","CEO":"CEO","Not yet sent":"Not yet sent","Sent to supplier":"Sent to supplier","Receipt posted":"Receipt posted","Invoiced":"Invoiced"};
 
-/* ==== SHARED LIVE HOLDER RULE (same logic as the 4 daily division emails) ====
-   The feed's stage selects the header bucket. Holder lists are split and de-duplicated.
-   Priced requisitions route to the department operations confirmer; missing/unrecognised
-   feed stages stay visible under the explicit source-gap label. */
+/* ==== SHARED LIVE HOLDER RULE (same logic as our Function App emails) ====
+   The feed's stage selects the header bucket. F&O Pending Approver/User supplies
+   holder identity; comma-joined names are split and de-duplicated only. */
 const USER_DEPT={"Abdul Basit Raza":"Building Services","Abdul.basit":"IT","Abdul.Muqeet":"Security Services","Admin":"IT","admin.hk":"Housekeeping Services","Adnan.Ullah":"Procurement","Ahamed Noorullah Mohamed":"Accomodation Services","Ahmed.Odeh":"Building Services","Aparna.Pauly":"Procurement","arman.b":"Accounts & Tax","ayman.g":"Accounts & Tax","Ayman.ismail":"Accounts & Tax","Buying Agent Concierge":"Concierge Services","D365CRM ADMIN":"IT","D365CRMADMIN":"IT","Dinesh Laxman Laxman":"Building Services","dinesh.laxman":"Building Services","Gokul Krishna Pillai":"Contracted Cleaning Services","Gokul.Krishna":"Contracted Cleaning Services","IT DEPARTMENT":"IT","Joe Orlain Jamisola":"Concierge Services","Judhin.prabhakar":"Contracted Cleaning Services","Layusha.cleatus":"Procurement","Mohamed.Ashraf":"Procurement","Mohammad.w":"Building Services","Muhammad Shehzad Ahmeduddin":"IT","muhammad.mustajab":"Accounts & Tax","Nathan.Buys":"Building Services","Patrick.Smith":"Accounts & Tax","Pramod Chandrasenan Chandrasenan":"Security Services","pramod.c":"Security Services","Qasim Jahangir":"QHSE","Roderick Red Palma":"Procurement","roderick.red":"Procurement","Shaik.baba":"Housekeeping Services","Shakir Ameer Bakhsh":"FitOut Services","Shijil Choyaprath Chandran":"Home Maintenance Services","shijil.c":"Home Maintenance Services","Sirinikhil":"Housekeeping Services","teena.k":"Concierge Services","Ubaid":"IT","Zaheer Ahmed Ameer":"Accomodation Services","Zaheer.Ahmed":"Accomodation Services"};
 const _rnorm=s=>String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' ');
 const _RUN={}; for(const k in USER_DEPT){_RUN[_rnorm(k)]=USER_DEPT[k];}
 function deptForUser(u){return _RUN[_rnorm(u)]||'';}
-const DEPT_OPSUSER=HOLDER_RULE.operationsHolderByDepartment;
-function opsUserForDept(d){return DEPT_OPSUSER[String(d==null?'':d).trim()]||'';}
 function roleOf(u){const d=deptForUser(u),ul=_rnorm(u);if(d==='Accounts & Tax'){if(ul==='ayman.g')return 'Director';if(ul==='patrick.smith')return 'CEO';return 'Finance';}if(d==='Procurement')return 'Procurement';return '';}
 const NOT_RECORDED=HOLDER_RULE.notRecorded;
 const NO_NAMED_OWNER='No named owner';
 const SYSTEM_ACCOUNTS=new Set(EMPLOYEE_HOLDER_MAP.systemAccounts.map(_rnorm));
 function resolveOwner(value){
   let v=String(value==null?'':value).trim();
-  if(!v)return {name:NOT_RECORDED,named:false};
+  if(!v)return {name:`${NO_NAMED_OWNER} — Pending Approver/User not recorded in F&O`,named:false};
   if(/^\d+$/.test(v)){
-    const mapped=EMPLOYEE_HOLDER_MAP.employees[v];
-    if(!mapped)return {name:`employee number ${v} — name not resolved`,named:false};
-    v=mapped;
+    return {name:`${NO_NAMED_OWNER} — F&O Pending Approver/User is employee number ${v}`,named:false};
   }
   if(SYSTEM_ACCOUNTS.has(_rnorm(v)))return {name:`${NO_NAMED_OWNER} — ${v}`,named:false};
-  const name=HOLDER_RULE.ownerAliases[_rnorm(v)]||v;
-  return {name,named:true};
+  return {name:v,named:true};
 }
 function ownerText(value){return resolveOwner(value).name;}
 function splitHolderNames(value){
   const named=[],unresolved=[],seen=new Set();
   String(value==null?'':value).split(',').forEach(part=>{const resolved=resolveOwner(part),key=_rnorm(resolved.name);if(seen.has(key))return;seen.add(key);(resolved.named?named:unresolved).push(resolved.name);});
-  return named.length?named:(unresolved.length?unresolved:[NOT_RECORDED]);
+  return named.length?named:(unresolved.length?unresolved:[`${NO_NAMED_OWNER} — Pending Approver/User not recorded in F&O`]);
 }
 function holderNames(value){return splitHolderNames(value);}
 function holderDisplay(r){return ((r&&r.holders)||holderNames(r&&r.pendingUser)).join(' · ');}
@@ -695,12 +689,7 @@ function ageBand(days){if(days==null)return 'Age not recorded';if(days<=7)return
 function prReconstruct(r,bucket){
   const work=workClassFor(r),rule=work.rule;
   const rowdept=String(r['Department']||'').trim();
-  let holders;
-  if(rule.holderMode==='departmentOperations'){
-    const mapped=opsUserForDept(rowdept);
-    holders=mapped?holderNames(mapped):[`${NO_NAMED_OWNER} — no operations person mapped for ${rowdept||'department not reported'}`];
-  }else if(rule.holderMode==='preparer')holders=holderNames(r['Preparer']);
-  else holders=holderNames(r['Pending Approver/User']);
+  const holders=holderNames(r['Pending Approver/User']);
   return {hdr:rule.headerBucket,owner:holders[0],holders,disp:bucket||HOLDER_RULE.unreportedStage,work};
 }
 function poReconstruct(r,bucket){

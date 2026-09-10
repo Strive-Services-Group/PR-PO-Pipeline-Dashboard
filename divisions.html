@@ -92,12 +92,10 @@ const _UN={}; for(const k in USER_DEPT){_UN[_norm(k)]=USER_DEPT[k];}
 function deptForUser(u){return _UN[_norm(u)]||'';}
 const DEPT_DIV={'Procurement':'procurement','Accounts & Tax':'finance','Home Maintenance Services':'ops_hm','FitOut Services':'ops_hm'};
 function divForDept(d){return DEPT_DIV[d]||'ops_all';}
-const DEPT_OPSUSER=HOLDER_RULE.operationsHolderByDepartment;
-function opsUserForDept(d){return DEPT_OPSUSER[String(d==null?'':d).trim()]||'';}
 function roleOf(u){const d=deptForUser(u),ul=_norm(u);if(d==='Accounts & Tax'){if(ul==='ayman.g')return 'Director';if(ul==='patrick.smith')return 'CEO';return 'Finance';}if(d==='Procurement')return 'Procurement';return '';}
 const NOT_RECORDED=HOLDER_RULE.notRecorded;
-function ownerText(value){const v=String(value==null?'':value).trim();return (!v||/^0+$/.test(v)||/^\d+$/.test(v))?NOT_RECORDED:v;}
-function holderNames(value){const out=[],seen=new Set();String(value==null?'':value).split(',').forEach(part=>{let name=ownerText(part),key=_norm(name);name=HOLDER_RULE.ownerAliases[key]||name;key=_norm(name);if(name===NOT_RECORDED||seen.has(key))return;seen.add(key);out.push(name);});return out.length?out:[NOT_RECORDED];}
+function ownerText(value){const v=String(value==null?'':value).trim();if(!v)return 'No named owner — Pending Approver/User not recorded in F&O';if(/^\d+$/.test(v))return 'No named owner — F&O Pending Approver/User is employee number '+v;return v;}
+function holderNames(value){const out=[],seen=new Set();String(value==null?'':value).split(',').forEach(part=>{const name=ownerText(part),key=_norm(name);if(seen.has(key))return;seen.add(key);out.push(name);});return out.length?out:['No named owner — Pending Approver/User not recorded in F&O'];}
 function opsDivFor(reqdept){return (reqdept==='Home Maintenance Services'||reqdept==='FitOut Services')?'ops_hm':'ops_all';}
 function amt(r){const v=Number(r['Total amount']);return isFinite(v)?v:0;}
 function xd(v){if(v instanceof Date)return isNaN(v)?null:v; if(typeof v==='number'&&isFinite(v)){const o=XLSX.SSF.parse_date_code(v);if(!o||!o.y)return null;return new Date(Date.UTC(o.y,o.m-1,o.d,o.H||0,o.M||0,Math.floor(o.S||0)));} if(typeof v==='string'&&v){const d=new Date(v);return isNaN(d)?null:d;} return null;}
@@ -111,7 +109,7 @@ function itemDivision(it){ return it.div; }
 function buildItems(prRows,poRows){
   const items=[];
   for(const r of prRows){ if(!prLive(r))continue; const rawStage=String(r['Step name']||'').trim();const rule=HOLDER_RULE.stageRules[rawStage]||HOLDER_RULE.unreportedRule;const rowdept=String(r['Department']||'').trim();
-    const owners=holderNames(rule.holderMode==='departmentOperations'?(opsUserForDept(rowdept)||(rule.fallbackToPending?r['Pending Approver/User']:'')):r['Pending Approver/User']);
+    const owners=holderNames(r['Pending Approver/User']);
     const stage=rule.headerBucket;const rl=roleOf(owners[0]);let div;
     if(stage==='Procurement')div='procurement';else if(stage==='Finance'||stage==='Director'||stage==='CEO')div='finance';else if(stage==='Operations to Confirm'||stage==='Dep Managers')div=opsDivFor(rowdept);else div=rl==='Procurement'?'procurement':opsDivFor(rowdept);
     items.push({ref:r['Purchase requisition'],doc:'PR',typ:String(r['Purchase requisition']||'').startsWith('CPR')?'CPR':'PR',stage:stage,div:div,age:prAge(r),owner:owners.join(' · '),owners:owners,dept:rowdept,value:amt(r),vendor:'',ppend:true,step:rawStage||HOLDER_RULE.unreportedStage,status:String(r['Status']||'')}); }

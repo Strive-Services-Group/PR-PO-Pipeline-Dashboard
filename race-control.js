@@ -5,16 +5,7 @@
 })(typeof window !== 'undefined' ? window : null, function () {
   'use strict';
 
-  const OWNER_ALIASES = {
-    'dinesh laxman laxman': 'dinesh.laxman',
-    'gokul krishna pillai': 'Gokul.Krishna',
-    'pramod chandrasenan chandrasenan': 'pramod.c',
-    'shijil choyaprath chandran': 'shijil.c',
-    'zaheer ahmed ameer': 'Zaheer.Ahmed',
-    'd365crm admin': 'it.solutions',
-    'd365crmadmin': 'it.solutions',
-    'it department': 'it.solutions'
-  };
+  const OWNER_ALIASES = {};
 
   const PR_STAGES = ['Procurement', 'Operations to Confirm', 'Step not reported by F&O', 'Dep Managers', 'Finance', 'Director', 'CEO'];
   const PO_STAGES = ['Procurement', 'Finance', 'Director', 'CEO', 'Not yet sent', 'Sent to supplier', 'Receipt posted'];
@@ -31,7 +22,7 @@
   function canonicalOwner(value) {
     const original = clean(value);
     if (!original || /^0+$/.test(original) || /^\d+$/.test(original)) return NOT_RECORDED;
-    return OWNER_ALIASES[ownerKey(original)] || original;
+    return original;
   }
 
   function holderNames(row) {
@@ -40,7 +31,7 @@
     source.forEach(function (value) {
       String(value == null ? '' : value).split(',').forEach(function (part) {
         const owner = canonicalOwner(part), key = ownerKey(owner);
-        if (owner === NOT_RECORDED || seen.has(key)) return;
+        if (owner === NOT_RECORDED || key.startsWith('no named owner') || seen.has(key)) return;
         seen.add(key); output.push(owner);
       });
     });
@@ -172,8 +163,6 @@
   function personRows(prRows, poRows) {
     const combined = [];
     (prRows || []).forEach(function (row) {
-      const stage = stageName(row);
-      if (stage === 'Director' || stage === 'CEO') return;
       holderNames(row).forEach(function (owner) {
         if (owner !== NOT_RECORDED) combined.push({ row: row, type: 'PR', owner: owner });
       });
@@ -182,7 +171,7 @@
       const stage = stageName(row);
       const approval = clean(row.raw && row.raw['Approval status']);
       if (!['In review', 'InReview', 'Draft'].includes(approval)) return;
-      if (['Director', 'CEO', 'Sent to supplier', 'Receipt posted'].includes(stage)) return;
+      if (['Sent to supplier', 'Receipt posted'].includes(stage)) return;
       holderNames(row).forEach(function (owner) {
         if (owner !== NOT_RECORDED) combined.push({ row: row, type: 'PO', owner: owner });
       });

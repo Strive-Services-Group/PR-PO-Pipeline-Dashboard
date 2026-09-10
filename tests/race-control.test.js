@@ -54,19 +54,20 @@ assert.equal(model.overall.medianDays, 6);
 
 const dinesh = model.holders.find(holder => holder.key === 'dinesh.laxman');
 assert.ok(dinesh);
-assert.equal(dinesh.items, 2);
-assert.equal(dinesh.value, 300);
+assert.equal(dinesh.items, 1);
+assert.equal(dinesh.value, 200);
 assert.equal(dinesh.oldestDays, 10);
-assert.equal(dinesh.medianDays, 7);
+assert.equal(dinesh.medianDays, 10);
 assert.equal(dinesh.over7, 1);
-assert.equal(model.holders.some(holder => holder.key === 'patrick.smith'), false);
+assert.equal(model.holders.find(holder => holder.key === 'dinesh laxman laxman').items, 1);
+assert.equal(model.holders.some(holder => holder.key === 'patrick.smith'), true);
 assert.equal(model.holders.some(holder => holder.key === 'layusha.cleatus'), false);
 assert.equal(model.history[0].key, '2026-08-30');
 assert.equal(model.history[0].data.overall.items, 9);
 assert.equal(model.history[1].key, '2026-09-06');
 assert.equal(model.history[1].data, null);
 
-assert.equal(race.canonicalOwner('Gokul Krishna Pillai'), 'Gokul.Krishna');
+assert.equal(race.canonicalOwner('Gokul Krishna Pillai'), 'Gokul Krishna Pillai');
 assert.equal(race.canonicalOwner(''), 'not recorded');
 assert.equal(race.canonicalOwner('000000'), 'not recorded');
 assert.equal(race.canonicalOwner('310032'), 'not recorded');
