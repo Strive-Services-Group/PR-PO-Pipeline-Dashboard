@@ -7507,3 +7507,12 @@ All 14 named-owner differences are zero across 954 actionable requisitions. F&O 
 - The Function App recipient remains a fixed `w.amjad@striveservicesgroup.com`. Messages contain one `toRecipients` entry and no `ccRecipients` or `bccRecipients`; the regression test covers every personal and division message.
 - Chandan Kumar's sender, flow, OneDrive, tokens, recipients, template, and schedule were not changed. Only the `pr.xlsx` and `po.xlsx` content his existing process reads changed.
 - No recipient, secret, token, Graph permission, application setting, send-from setting, or Dataverse record changed. No email was sent.
+
+## Production release evidence
+
+- Proxy commit `5f24eaff3188d5bc0a870efa9f7abf1329ceb5a1` was pushed to `main`. Deployment run `34463794678` passed all tests, Azure deployment, and its public exact-SHA check.
+- A fresh public `/api/dataset?refresh=1` read returned revision `5696023e36cf1ba5384ae9dc675c7e4643b88b5fcf8270d3e4ddaf166a6e8fde`: 4,394 PR rows, 971 live PRs, 587 named, 384 no named owner, 2,977 POs, and 1,167 named PO holders. It returned the exact 7 September provenance sentence and stale warning recorded above.
+- Dashboard commits `e011ca928952dcd55ee7ee2d00cd371637e88fba` and `18485d2212aaa55c55e298fc731d9ec78efefb7d` shipped the workbooks first and the page/email-aligned presentation second. The production publisher then created `69fa91a22b435e73fb93bbb9bbac31b63ba1d74f` from the deployed proxy output.
+- Publisher rehearsal run `34464225011` completed generation, evidence upload, scoped workbook commit, and Pages deployment in 42 seconds. This proves the project-controlled dispatch path; it was a manual rehearsal, not a scheduled occurrence.
+- The Codex automation `pr-po-workbook-pre-send-publisher` is active at 03:30 UTC / 07:30 Dubai every weekday. Its first unattended weekday run will be 11 September, so the required post-change unattended run history does not yet exist. This limitation is stated plainly rather than reported as passed.
+- The public `pr.xlsx` and `po.xlsx` binary SHA-256 values match local `main`. The public `index.html` Git blob matches `main`; the raw worktree byte count differs only because the Windows checkout uses CRLF and GitHub Pages serves the repository's LF-normalized blob.
