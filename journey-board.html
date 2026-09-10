@@ -566,6 +566,7 @@ setTimeout(()=>{const box=document.querySelector('.jbox');
     document.querySelector('.next .d').innerHTML = `<b>${whole(queue.count)} PRs at one step</b> — the deepest live queue and the engine of the Submitted→PO constraint. The top two desks hold ${whole(topTwo)} of this queue.`;
     const stamp = new Date(data.meta.asOfTimestamp);
     document.querySelector('.liveclk').innerHTML = `<i></i>LIVE · ${stamp.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase()} · ${stamp.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false})}`;
+    document.querySelector('.foot span:last-child').textContent = data.meta.staleWarning || data.meta.provenanceSentence || 'Strive Services Group · For Excellence We Strive';
     if (evidenceMode) {
       document.getElementById('stage').classList.add('on');
       document.querySelectorAll('.rv0').forEach(node => { node.style.opacity = '1'; node.style.transform = 'none'; });

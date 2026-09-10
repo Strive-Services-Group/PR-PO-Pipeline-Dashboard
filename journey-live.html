@@ -440,7 +440,7 @@ cars(document.getElementById('pc'),[
     ticker.innerHTML = `<span style="color:#8ef0ae;font-weight:700"><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 9px var(--green);margin-right:8px;animation:pu 1.6s infinite"></i>LIVE</span>${data.pageTwo.divisions.map(item => `<span>${esc(item.division.toUpperCase())} <b>${whole(item.count)}</b></span>`).join('<span class="sep">|</span>')}<span class="sep">|</span><span style="color:#ffe1ae">PAGE 1 ← JOURNEY BOARD · PAGE 2 LIVE RACE & QUEUES</span>`;
     const stamp = new Date(data.meta.asOfTimestamp);
     document.querySelector('.foot span:first-child').innerHTML = '<b style="color:#cfe2f5">Solid gates 1·8·9</b> = timestamped · <b style="color:#cfe2f5">dashed 2–7</b> = sequence only · dwell = calendar days at current step · benchmark measured to LPO Sent · working days Mon–Fri · window: created 01 Apr 2026 →';
-    document.querySelector('.foot span:last-child').textContent = `Strive Services Group · as of ${stamp.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} ${stamp.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false})}`;
+    document.querySelector('.foot span:last-child').textContent = data.meta.staleWarning || data.meta.provenanceSentence || `Strive Services Group · as of ${stamp.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} ${stamp.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false})}`;
     document.body.classList.add('data-ready');
   }
 

@@ -16,6 +16,7 @@ assert.match(live.DATASET_URL, /^https:\/\/ssg-prpo-proxy-.*\/api\/dataset$/);
 (async function () {
   const dataset = {
     revision: 'same-revision', generatedAt: '2026-09-07T16:00:00Z', sourceState: 'LIVE',
+    exportAuthority: { provenanceSentence: 'These figures come from the Dynamics 365 F&O export supplied by IT, dated 7 September 2026.', staleWarning: 'Warning: stale export.' },
     pr: { count: 1, rows: [{ 'Purchase requisition': 'PR-TEST', 'Step date and time': '2026-09-07T15:00:00Z' }] },
     po: { count: 1, openCount: 1, clockCounts: { liveDated: 1, seededFromFinalWorkbook: 0, notRecorded: 0 }, rows: [{ 'Purchase order': 'PO-TEST', 'Live stage': 'Receipt posted', 'Stage event date and time': '2026-09-07T16:00:00Z' }] }
   };
@@ -28,6 +29,7 @@ assert.match(live.DATASET_URL, /^https:\/\/ssg-prpo-proxy-.*\/api\/dataset$/);
   assert.equal(result.revision, 'same-revision');
   assert.equal(result.pr[0]['Purchase requisition'], 'PR-TEST');
   assert.equal(result.po[0]['Live stage'], 'Receipt posted');
+  assert.equal(result.exportAuthority.provenanceSentence, dataset.exportAuthority.provenanceSentence);
   assert.equal(live.newestDataDate(result.pr, result.po).toISOString(), '2026-09-07T16:00:00.000Z');
   console.log('Live proxy dataset tests passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -53,11 +53,10 @@ function build(overrides) {
   return vm.runInContext('buildPRRecords([__row])[0]', context);
 }
 
-assert.deepEqual(Array.from(build({ 'Pending Approver/User': 'Adnan.Ullah, adnan.ullah, Layusha.cleatus' }).holders), ['Adnan.Ullah', 'Layusha.cleatus']);
-const shared = build({ 'Pending Approver/User': 'Adnan.Ullah, Layusha.cleatus, roderick.red' });
-assert.equal(shared.sourceShared, true);
-assert.deepEqual(Array.from(shared.liveBuyers), ['Adnan.Ullah', 'roderick.red']);
-assert.doesNotMatch(shared.sharedLabel, /Layusha/i);
+const dataFault = build({ 'Pending Approver/User': 'Adnan.Ullah, roderick.red' });
+assert.deepEqual(Array.from(dataFault.holders), ['No named owner — F&O export data fault: more than one owner supplied']);
+assert.equal(dataFault.sourceShared, false);
+assert.deepEqual(Array.from(dataFault.liveBuyers), []);
 assert.deepEqual(Array.from(build({ 'Pending Approver/User': 'Aparna.Pauly' }).holders), ['Aparna.Pauly']);
 assert.deepEqual(Array.from(build({ 'Pending Approver/User': '' }).holders), ['No named owner — Pending Approver/User not recorded in F&O']);
 
@@ -67,10 +66,10 @@ assert.equal(unreported.subBucket, 'Step not reported by F&O');
 assert.equal(unreported._isOpenPipeline, true);
 assert.equal(unreported._isUnmapped, false);
 
-const priced = build({ 'Step name': 'Priced — awaiting approval', 'Stage reason code': 'ACTIVE_LINES_PRICED', 'Pending Approver/User': 'Adnan.Ullah' });
+const priced = build({ 'Step name': 'Quotation shared to Operations for confirmation', 'Stage reason code': 'ACTIVE_LINES_NOT_FULLY_PRICED', 'Pending Approver/User': 'Adnan.Ullah' });
 assert.equal(priced.hdrBucket, 'Operations to Confirm');
 assert.deepEqual(Array.from(priced.holders), ['Adnan.Ullah']);
-assert.deepEqual(Array.from(build({ 'Step name': 'Priced — awaiting approval', 'Stage reason code': 'ACTIVE_LINES_PRICED', 'Department': 'Surveying Services', 'Pending Approver/User': 'Aparna.Pauly' }).holders), ['Aparna.Pauly']);
+assert.deepEqual(Array.from(build({ 'Step name': 'Unit prices updated in PR lines', 'Stage reason code': 'ACTIVE_LINES_PRICED', 'Department': 'Surveying Services', 'Pending Approver/User': 'Aparna.Pauly' }).holders), ['Aparna.Pauly']);
 
 const mappedEmployee = build({ 'Step name': '', 'Stage reason code': 'NO_CURRENT_WORK_ITEM', 'Preparer': '310523', 'Pending Approver/User': '' });
 assert.deepEqual(Array.from(mappedEmployee.holders), ['No named owner — Pending Approver/User not recorded in F&O']);

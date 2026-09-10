@@ -72,6 +72,7 @@
         fetchedAt: dataset.generatedAt,
         revision: dataset.revision,
         sourceState: dataset.sourceState || 'LIVE',
+        exportAuthority: dataset.exportAuthority || null,
         freshness: dataset.freshness || null,
         counts: { prHeaders: dataset.pr.count, poHeaders: dataset.po.count, poOpen: dataset.po.openCount },
         clockCounts: dataset.po.clockCounts || null

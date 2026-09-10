@@ -651,17 +651,12 @@ const SYSTEM_ACCOUNTS=new Set(EMPLOYEE_HOLDER_MAP.systemAccounts.map(_rnorm));
 function resolveOwner(value){
   let v=String(value==null?'':value).trim();
   if(!v)return {name:`${NO_NAMED_OWNER} — Pending Approver/User not recorded in F&O`,named:false};
-  if(/^\d+$/.test(v)){
-    return {name:`${NO_NAMED_OWNER} — F&O Pending Approver/User is employee number ${v}`,named:false};
-  }
-  if(SYSTEM_ACCOUNTS.has(_rnorm(v)))return {name:`${NO_NAMED_OWNER} — ${v}`,named:false};
+  if(v.includes(','))return {name:`${NO_NAMED_OWNER} — F&O export data fault: more than one owner supplied`,named:false};
   return {name:v,named:true};
 }
 function ownerText(value){return resolveOwner(value).name;}
 function splitHolderNames(value){
-  const named=[],unresolved=[],seen=new Set();
-  String(value==null?'':value).split(',').forEach(part=>{const resolved=resolveOwner(part),key=_rnorm(resolved.name);if(seen.has(key))return;seen.add(key);(resolved.named?named:unresolved).push(resolved.name);});
-  return named.length?named:(unresolved.length?unresolved:[`${NO_NAMED_OWNER} — Pending Approver/User not recorded in F&O`]);
+  return [resolveOwner(value).name];
 }
 function holderNames(value){return splitHolderNames(value);}
 function holderDisplay(r){return ((r&&r.holders)||holderNames(r&&r.pendingUser)).join(' · ');}
@@ -672,11 +667,16 @@ function prClock(created,step){
   const age=daysBetween(step,TODAY);return {age,basis:'Current step',label:age==null?'Current-step date not recorded':`Current step ${age}d`};
 }
 function sharedBuyerState(r,work){
-  if(!work||work.code!=='ACTIVE_LINES_NOT_FULLY_PRICED')return {sourceShared:false,liveBuyers:[],label:'Not shared'};
-  const all=splitHolderNames(r&&r['Pending Approver/User']);
-  if(all.length<2)return {sourceShared:false,liveBuyers:[],label:'Not shared'};
-  const live=all.filter(name=>!INACTIVE_USERNAMES.has(_rnorm(name)));
-  return {sourceShared:true,liveBuyers:live,label:live.length>1?`Shared: ${live.join(' · ')}`:'Shared source assignment · no other active buyer'};
+  return {sourceShared:false,liveBuyers:[],label:'Not shared'};
+}
+function prQueueForStep(step){
+  if(['Quotation shared to Operations for confirmation','Unit prices updated in PR lines'].includes(step))return 'Operations to Confirm';
+  if(step==='Finance & Accounts_Accounting Manager')return 'Finance';
+  if(['Facilities Management_Director','Commercial_Director'].includes(step))return 'Director';
+  if(step==='Executive Management_CEO')return 'CEO';
+  if(/_(?:Manager|Asst\. Facility Managers|Facilities Manager|Operations Manager)/.test(step))return 'Dep Managers';
+  if(['PurchReqReviewTask','Procurement sends inquiry/RFQ to suppliers','Quotation received and logged/attached'].includes(step))return 'Procurement';
+  return 'Step not reported by F&O';
 }
 function workClassFor(r){
   let code=String(r&&r['Stage reason code']||'').trim();
@@ -687,10 +687,10 @@ function workClassFor(r){
 }
 function ageBand(days){if(days==null)return 'Age not recorded';if(days<=7)return '0–7';if(days<=30)return '8–30';if(days<=60)return '31–60';if(days<=90)return '61–90';return 'Over 90';}
 function prReconstruct(r,bucket){
-  const work=workClassFor(r),rule=work.rule;
-  const rowdept=String(r['Department']||'').trim();
+  const work=workClassFor(r);
   const holders=holderNames(r['Pending Approver/User']);
-  return {hdr:rule.headerBucket,owner:holders[0],holders,disp:bucket||HOLDER_RULE.unreportedStage,work};
+  const hdr=prQueueForStep(String(r['Step name']||'').trim());
+  return {hdr,owner:holders[0],holders,disp:hdr,work};
 }
 function poReconstruct(r,bucket){
   // returns {hdr, owner} for a mapped/live PO record
@@ -760,7 +760,7 @@ let currentDrillSubset=[];
 let currentDrillTitle='';
 let activeFilters={prtype:'all',bucket:'',step:'',workClass:'',dept:'',status:'',project:'',from:'',to:'',aging:'',search:''};
 let WEEKLY_SNAPSHOTS=null;   // weekly_snapshots.json — week-end (Sunday) live-pipeline snapshots
-let DATA_STATE={source:'loading',detail:'Connecting to the live F&O dataset',checking:true,error:null,freshness:null};
+let DATA_STATE={source:'loading',detail:'Connecting to the F&O export dataset',checking:true,error:null,freshness:null,exportAuthority:null};
 let liveRequest=null;
 let STUCK_ITEMS=[];
 let STUCK_ITEMS_ERROR=null;
@@ -782,10 +782,10 @@ function prType(docNumber){if(!docNumber)return'';const s=String(docNumber).toUp
 
 function replaceRows(target,rows){target.length=0;(rows||[]).forEach(r=>target.push(r));}
 function sourceLabel(source){
-  if(source==='live')return 'Live F&O';
-  if(source==='live-cache'||source==='stale')return 'Cached live F&O';
+  if(source==='live')return 'F&O export';
+  if(source==='live-cache'||source==='stale')return 'Cached F&O export';
   if(source==='failed')return 'Live source unavailable';
-  return 'Connecting to live F&O';
+  return 'Connecting to F&O export';
 }
 function newestLoadedDate(){
   const effective=DATA_STATE.freshness&&DATA_STATE.freshness.effectiveDataTimeUtc;
@@ -814,7 +814,8 @@ function updateDataStatus(patch){
   const dateEl=document.getElementById('lastRefresh');
   const sourceEl=document.getElementById('dataSource');
   const warningEl=document.getElementById('dataWarning');
-  if(dateEl)dateEl.innerText='Effective: '+dateText+' · F&O: '+shortUtc(f.fAndOReadUtc)+' · approvals: '+shortUtc(f.approvalCaptureReconciledUtc)+' · '+label;
+  const authority=DATA_STATE.exportAuthority||{};
+  if(dateEl)dateEl.innerText=authority.provenanceSentence||('Effective: '+dateText+' · '+label);
   if(sourceEl){
     const live=DATA_STATE.source==='live'||DATA_STATE.source==='live-cache'||DATA_STATE.source==='stale';
     sourceEl.className='source-tag '+(live?'live':'file')+(DATA_STATE.checking?' loading':'');
@@ -822,6 +823,7 @@ function updateDataStatus(patch){
     sourceEl.title=DATA_STATE.detail||label;
   }
   const warnings=[];
+  if(authority.staleWarning)warnings.push(authority.staleWarning);
   if(DATA_STATE.error)warnings.push(DATA_STATE.error+' — '+label+' is shown.');
   if(!date)warnings.push('The data date is unavailable.');
   else{
@@ -1071,7 +1073,7 @@ const AN_CSS=`
 .anDelta{font-weight:800}
 </style>`;
 const AN_PALETTE=['#2f6bd8','#0ea5e9','#14b8a6','#8b5cf6','#f59e0b','#ec4899','#22c55e','#a855f7','#f97316','#64748b'];
-function _anMoney(v){ return 'AED '+(Number(v)||0).toLocaleString('en-US',{maximumFractionDigits:0})+' excl. VAT'; }
+function _anMoney(v){ return 'AED '+(Number(v)||0).toLocaleString('en-US',{maximumFractionDigits:0}); }
 function _anRecordedPriceStats(rows){const priced=(rows||[]).filter(r=>r._doc==='PO'||r.hasRecordedAmount);return {count:priced.length,value:priced.reduce((sum,r)=>sum+(r.amount||0),0)};}
 function _anRecordedPrice(rows){const s=_anRecordedPriceStats(rows);return s.count?`${s.count} priced · ${_anMoney(s.value)}`:'Not yet priced';}
 function _anItemPrice(r){return r&&r._doc==='PR'&&!r.hasRecordedAmount?'Not yet priced':_anMoney(r&&r.amount);}
@@ -1405,7 +1407,9 @@ function buildJourneyData(){
       prRows: PR_DATA.length, poRows: PO_DATA.length, eligiblePrs: jr.length,
       missingTerminalTimestamp: true,
       excluded: { rejectedOrCancelled: PRR.length - prAll.length, unmapped: 0, stepNotReported: PRR.filter(r => r._isOpenPipeline && r._isStepUnreported).length },
-      source: 'live dashboard data'
+      source: (DATA_STATE.exportAuthority&&DATA_STATE.exportAuthority.provenanceSentence)||'Dynamics 365 F&O export supplied by IT',
+      provenanceSentence: (DATA_STATE.exportAuthority&&DATA_STATE.exportAuthority.provenanceSentence)||'',
+      staleWarning: (DATA_STATE.exportAuthority&&DATA_STATE.exportAuthority.staleWarning)||''
     },
     headline: headline,
     targets : { raisedToGoodsWd: JB_TARGET_WD, goodsToInvoiceDays: JB_INVOICE_TARGET_D },
@@ -1633,7 +1637,7 @@ function _jbWorklist(){
 /* Plain-English findings, all computed — nothing hard-coded. */
 function _jbFindings(jb, stages, work){
   const f = [], tot = jb.headline.lpoMedianWd || 0;
-  const money = v => 'AED ' + Math.round(v).toLocaleString('en-US') + ' excl. VAT';
+  const money = v => 'AED ' + Math.round(v).toLocaleString('en-US');
 
   const dom = stages.slice().sort((a, b) => b.meanWd - a.meanWd)[0];
   if(dom && dom.meanWd > 0){
@@ -2170,7 +2174,7 @@ function renderAnalysis(){
   let h=AN_CSS+`<div class="anSubPane on" id="anSubCurrent"><div class="anWrap">`;
   /* ---------- HERO ---------- */
   h+=`<div class="anHero"><div><h2><i class="fa-solid fa-magnifying-glass-chart" style="color:#FAC775;margin-right:10px"></i>Procurement Action Centre</h2>
-      <div class="sub">Who must act today, where the pipeline leaks, and how suppliers perform — the same live holder rule as the daily division emails. Each document counts once in pipeline totals; shared holders each receive one personal attribution.</div></div>
+      <div class="sub">Who must act today, where the pipeline leaks, and how suppliers perform — using the same IT-supplied F&O export as the daily emails. Each document counts once and has one export owner.</div></div>
       <div class="anHeroStats">
         <div class="anHeroStat"><div class="v">${live.length.toLocaleString()}</div><div class="l">Open items</div></div>
         <div class="anHeroStat"><div class="v">${(totV/1e6).toFixed(1)}M</div><div class="l">Recorded value · ${totalPricing.count} priced items</div></div>
@@ -2426,9 +2430,9 @@ function applyFilters(){
     holderBanner.classList.toggle('visible',!!raceHolderFilter);
     if(raceHolderFilter){
       const priced=filteredRecords.filter(r=>mode!=='PR'||r.hasRecordedAmount), pricing=filteredRecords.filter(r=>mode==='PR'&&r.classCode==='ACTIVE_LINES_NOT_FULLY_PRICED').length;
-      const pricedValue=priced.reduce((sum,r)=>sum+(r.amount||0),0), shared=filteredRecords.filter(r=>mode==='PR'&&r.sourceShared).length;
-      const priceText=mode==='PR'?(priced.length?`${priced.length} priced, worth AED ${pricedValue.toLocaleString(undefined,{maximumFractionDigits:0})} excl. VAT`:'not yet priced'):`AED ${pricedValue.toLocaleString(undefined,{maximumFractionDigits:0})} excl. VAT`;
-      holderBanner.querySelector('span').textContent=`Ring-fenced queue: ${holder?holder.name:raceHolderFilter} · ${mode} · ${filteredRecords.length} items · ${pricing} still being priced · ${priceText}${shared?` · ${shared} source-shared`:''}`;
+      const pricedValue=priced.reduce((sum,r)=>sum+(r.amount||0),0);
+      const priceText=mode==='PR'?(priced.length?`${priced.length} priced, worth AED ${pricedValue.toLocaleString(undefined,{maximumFractionDigits:0})}`:'not yet priced'):`AED ${pricedValue.toLocaleString(undefined,{maximumFractionDigits:0})}`;
+      holderBanner.querySelector('span').textContent=`Ring-fenced queue: ${holder?holder.name:raceHolderFilter} · ${mode} · ${filteredRecords.length} items · ${pricing} still being priced · ${priceText}`;
     }else holderBanner.querySelector('span').textContent='';
   }
   renderAll();
@@ -2739,7 +2743,7 @@ function renderCharts(records){
 
 /* ============ Main table - mode-aware ============ */
 function getMainColumns(){
-  if(mode==='PR') return ['PR #','Type','Name','Department','Project / Location','Class of work','What to do','Bucket','Sub-bucket (Step)','Status','Created','Step Date & Time','Age / source','Age band / source','Pending With','Shared buyers','Recorded price'];
+  if(mode==='PR') return ['PR #','Type','Name','Department','Project / Location','Class of work','What to do','Bucket','Sub-bucket (Step)','Status','Created','Step Date & Time','Age / source','Age band / source','Pending With','F&O export total'];
   return ['PO #','Vendor','Department','Project / Location','Bucket','Sub-bucket (Step)','Status','Created','Step Date & Time','Aging','Amount','Pending With'];
 }
 function renderTable(records){
@@ -2748,7 +2752,7 @@ function renderTable(records){
   document.getElementById('mainTableHead').innerHTML='<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
   let rows;
   if(mode==='PR'){
-    rows=records.map(r=>[r.docNumber,`<b style="color:${r.prType==='CPR'?'#0ea5e9':'#8b5cf6'}">${r.prType||'—'}</b>`,r.name,r.department,r.project,escapeHtml(r.workClass),escapeHtml(r.workAction),`<b style="color:${bucketColor(r.bucket)}">${escapeHtml(r.bucket)}</b>`,escapeHtml(r.subBucket),statusBadge(r.status),fmtDate(r.createdDate),fmtDateTime(r.stepDate),escapeHtml(r.ageLabel),escapeHtml(r.ageBandLabel),escapeHtml(holderDisplay(r)),escapeHtml(r.sharedLabel),r.hasRecordedAmount?`AED ${(r.amount||0).toLocaleString(undefined,{maximumFractionDigits:2})} excl. VAT`:'Not yet priced']);
+    rows=records.map(r=>[r.docNumber,`<b style="color:${r.prType==='CPR'?'#0ea5e9':'#8b5cf6'}">${r.prType||'—'}</b>`,r.name,r.department,r.project,escapeHtml(r.workClass),escapeHtml(r.workAction),`<b style="color:${bucketColor(r.bucket)}">${escapeHtml(r.bucket)}</b>`,escapeHtml(r.subBucket),statusBadge(r.status),fmtDate(r.createdDate),fmtDateTime(r.stepDate),escapeHtml(r.ageLabel),escapeHtml(r.ageBandLabel),escapeHtml(holderDisplay(r)),r.hasRecordedAmount?`AED ${(r.amount||0).toLocaleString(undefined,{maximumFractionDigits:2})}`:'Not yet priced']);
   } else {
     rows=records.map(r=>[r.docNumber,r.vendorName,r.department,r.project,`<b style="color:${bucketColor(r.bucket)}">${escapeHtml(r.bucket)}</b>`,escapeHtml(stepText(r)),statusBadge(r.status),fmtDate(r.createdDate),fmtDateTime(r.stepDate),agingLabel(r.aging),(r.amount||0).toLocaleString(undefined,{maximumFractionDigits:2}),escapeHtml(holderDisplay(r))]);
   }
@@ -2760,7 +2764,7 @@ function renderTable(records){
 
 /* ============ Drill-through ============ */
 function getDrillColumns(){
-  if(mode==='PR') return ['PR #','Type','Quote Ref','Name','Department','Project','Class of work','What to do','Sub-bucket (Step)','Status','Created','Step Date','Age / source','Age band / source','Pending With','Shared buyers','Recorded price'];
+  if(mode==='PR') return ['PR #','Type','Quote Ref','Name','Department','Project','Class of work','What to do','Sub-bucket (Step)','Status','Created','Step Date','Age / source','Age band / source','Pending With','F&O export total'];
   return ['PO #','Vendor','Department','Project','Sub-bucket (Step)','Status','Created','Step Date','Aging','Amount','Pending With'];
 }
 /* Shared modal renderer — used by both bucket/dept drill and Overall-KPI drill */
@@ -2785,7 +2789,7 @@ function showDrillModal(subset, title){
     <div class="modal-stat"><div class="lbl">Avg Aging</div><div class="val">${avg}d</div></div>
     <div class="modal-stat"><div class="lbl">Max Aging</div><div class="val">${max}d</div></div>
     <div class="modal-stat"><div class="lbl">SLA Breaches</div><div class="val" style="color:${breaches>0?'var(--red)':'var(--green)'}">${breaches}</div></div>
-    <div class="modal-stat"><div class="lbl">${mode==='PR'?'Recorded price':'Total value'} (AED excl. VAT)</div><div class="val">${mode==='PR'?pricedSubset.length+' priced · ':''}${totalAmt.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>`;
+    <div class="modal-stat"><div class="lbl">${mode==='PR'?'F&O export total':'Total value'} (AED)</div><div class="val">${mode==='PR'?pricedSubset.length+' priced · ':''}${totalAmt.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>`;
   document.getElementById('drillStats').innerHTML = statsHtml;
 
   const cols = getDrillColumns();
@@ -2810,8 +2814,7 @@ function showDrillModal(subset, title){
         <td>${escapeHtml(r.ageLabel)}</td>
         <td>${escapeHtml(r.ageBandLabel)}</td>
         <td>${escapeHtml(holderDisplay(r))}</td>
-        <td>${escapeHtml(r.sharedLabel)}</td>
-        <td>${r.hasRecordedAmount?'AED '+(r.amount||0).toLocaleString(undefined,{maximumFractionDigits:2})+' excl. VAT':'Not yet priced'}</td>
+        <td>${r.hasRecordedAmount?'AED '+(r.amount||0).toLocaleString(undefined,{maximumFractionDigits:2}):'Not yet priced'}</td>
       </tr>`).join('');
   } else {
     tbody.innerHTML = sorted.map(r=>`
@@ -2881,11 +2884,11 @@ function closeDrill(){document.getElementById('drillModal').classList.remove('ac
 function exportDrillToExcel(){
   if(!currentDrillSubset||!currentDrillSubset.length){alert('Nothing to export.');return;}
   const cols=mode==='PR'
-    ? ['PR #','Type','Quote Ref','Name','Department','Project','Class of work','What to do','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Age / source','Age band / source','Pending With','Shared buyers','Recorded price']
+    ? ['PR #','Type','Quote Ref','Name','Department','Project','Class of work','What to do','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Age / source','Age band / source','Pending With','F&O export total']
     : ['PO #','Vendor','Department','Project','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Aging (days)','Amount','Pending With'];
   const wsData=[cols];
   currentDrillSubset.forEach(r=>{
-    if(mode==='PR') wsData.push([r.docNumber,r.prType,r.quotationRef,r.name,r.department,r.project,r.workClass,r.workAction,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.ageLabel,r.ageBandLabel,holderDisplay(r),r.sharedLabel,r.hasRecordedAmount?r.amount:'Not yet priced']);
+    if(mode==='PR') wsData.push([r.docNumber,r.prType,r.quotationRef,r.name,r.department,r.project,r.workClass,r.workAction,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.ageLabel,r.ageBandLabel,holderDisplay(r),r.hasRecordedAmount?r.amount:'Not yet priced']);
     else wsData.push([r.docNumber,r.vendorName,r.department,r.project,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.aging,r.amount,holderDisplay(r)]);
   });
   const wb=XLSX.utils.book_new();
@@ -2897,11 +2900,11 @@ function exportDrillToExcel(){
 
 function exportToExcel(){
   const cols=mode==='PR'
-    ? ['PR #','Type','Quote Ref','Name','Department','Project','Class of work','What to do','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Age / source','Age band / source','Pending With','Shared buyers','Recorded price']
+    ? ['PR #','Type','Quote Ref','Name','Department','Project','Class of work','What to do','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Age / source','Age band / source','Pending With','F&O export total']
     : ['PO #','Vendor','Department','Project','Bucket','Sub-bucket (Step)','Status','Created','Step Date','Aging (days)','Amount','Pending With'];
   const wsData=[cols];
   filteredRecords.forEach(r=>{
-    if(mode==='PR') wsData.push([r.docNumber,r.prType,r.quotationRef,r.name,r.department,r.project,r.workClass,r.workAction,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.ageLabel,r.ageBandLabel,holderDisplay(r),r.sharedLabel,r.hasRecordedAmount?r.amount:'Not yet priced']);
+    if(mode==='PR') wsData.push([r.docNumber,r.prType,r.quotationRef,r.name,r.department,r.project,r.workClass,r.workAction,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.ageLabel,r.ageBandLabel,holderDisplay(r),r.hasRecordedAmount?r.amount:'Not yet priced']);
     else wsData.push([r.docNumber,r.vendorName,r.department,r.project,r.bucket,r.subBucket,r.status,fmtDate(r.createdDate),fmtDateTime(r.stepDate),r.aging,r.amount,holderDisplay(r)]);
   });
   const wb=XLSX.utils.book_new();
@@ -2980,14 +2983,15 @@ async function loadLive(options){
       if(!window.PRPO_DATAVERSE)throw new Error('Live F&O data layer is unavailable');
       const warm=!options.force&&PRPO_DATAVERSE.readCache();
       if(warm){
-        applyDataRows(warm.pr,warm.po,{source:'live-cache',checking:true,freshness:warm.freshness||null,detail:'Cached live F&O shown while the current revision refreshes'});
+        applyDataRows(warm.pr,warm.po,{source:'live-cache',checking:true,freshness:warm.freshness||null,exportAuthority:warm.exportAuthority||null,detail:'Cached F&O export shown while the current revision refreshes'});
       }
       const result=await PRPO_DATAVERSE.load({timeoutMs:120000,force:!!options.force});
       const stale=result.sourceState==='STALE'||result.stale;
       applyDataRows(result.pr,result.po,{
         source:stale?'stale':'live',
         freshness:result.freshness||null,
-        detail:(stale?'Cached live dataset':'Live F&O dataset')+' revision '+String(result.revision||'').slice(0,12),
+        exportAuthority:result.exportAuthority||null,
+        detail:(stale?'Cached export dataset':'F&O export dataset')+' revision '+String(result.revision||'').slice(0,12),
         error:stale?(result.refreshError||'Live refresh failed; cached data is shown'):null
       });
       window.PRPO_DATASET_REVISION=result.revision;
@@ -3329,7 +3333,7 @@ function signOut(){
 }
 
 async function bootDashboard(){
-  showLoader('Loading live F&O data...');
+  showLoader('Loading the IT-supplied F&O export...');
   try{
     await ensureDashboardAssets();
     rebuild();

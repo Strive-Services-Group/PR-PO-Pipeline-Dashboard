@@ -21,21 +21,15 @@
 
   function canonicalOwner(value) {
     const original = clean(value);
-    if (!original || /^0+$/.test(original) || /^\d+$/.test(original)) return NOT_RECORDED;
+    if (!original) return NOT_RECORDED;
+    if (original.includes(',')) return 'No named owner — F&O export data fault: more than one owner supplied';
     return original;
   }
 
   function holderNames(row) {
     const source = row && Array.isArray(row.holders) ? row.holders : [row && row.pendingUser];
-    const seen = new Set(), output = [];
-    source.forEach(function (value) {
-      String(value == null ? '' : value).split(',').forEach(function (part) {
-        const owner = canonicalOwner(part), key = ownerKey(owner);
-        if (owner === NOT_RECORDED || key.startsWith('no named owner') || seen.has(key)) return;
-        seen.add(key); output.push(owner);
-      });
-    });
-    return output.length ? output : [NOT_RECORDED];
+    const owner = canonicalOwner(source[0]);
+    return [owner];
   }
 
   function finiteAges(rows) {
@@ -343,7 +337,7 @@
     const oldestStuck = stuckAges.length ? Math.max.apply(null, stuckAges) : null;
     const excludedText = model.excludedCount + ' stuck item' + (model.excludedCount === 1 ? '' : 's') + ' excluded — see lane';
     container.innerHTML = '<div class="rc-shell">' +
-      '<header class="rc-hero"><div><span class="rc-eyebrow"><i class="fa-solid fa-flag-checkered"></i> Race Control</span><h2>Who is holding what — and is it getting better?</h2><p>Live action queue · source-labelled age · ' + esc(model.source) + '. Each document counts once overall; shared holders each receive one personal attribution.</p></div><div class="rc-exclusion"><b>' + model.excludedCount + '</b><span>' + esc(excludedText) + '</span></div></header>' +
+      '<header class="rc-hero"><div><span class="rc-eyebrow"><i class="fa-solid fa-flag-checkered"></i> Race Control</span><h2>Who is holding what — and is it getting better?</h2><p>Action queue · source-labelled age · ' + esc(model.source) + '. Each document counts once and has one export owner.</p></div><div class="rc-exclusion"><b>' + model.excludedCount + '</b><span>' + esc(excludedText) + '</span></div></header>' +
       '<section class="rc-block"><div class="rc-block-head"><span>01</span><div><h3>How long are things taking?</h3><p>Live pipeline only. Detail rows say whether age starts at raised date or a distinct step date.</p></div></div>' +
         '<div class="rc-overall"><div><span>Average source age</span><b>' + one(overall.averageDays) + '<small>d</small></b></div><div><span>Median source age</span><b>' + one(overall.medianDays) + '<small>d</small></b></div><div><span>Live action items</span><b>' + whole(overall.items) + '</b></div><div><span>Past seven days</span><b class="danger">' + whole(overall.over7) + '</b></div></div>' +
         '<div class="rc-table-wrap"><table class="rc-table rc-stage-table"><thead><tr><th>Header stage</th><th>Items</th><th>Average</th><th>Median</th><th>&gt;7d</th></tr></thead><tbody>' + stageRows + '</tbody></table></div></section>' +

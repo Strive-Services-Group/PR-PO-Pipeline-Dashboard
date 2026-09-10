@@ -69,10 +69,10 @@ assert.equal(model.history[1].data, null);
 
 assert.equal(race.canonicalOwner('Gokul Krishna Pillai'), 'Gokul Krishna Pillai');
 assert.equal(race.canonicalOwner(''), 'not recorded');
-assert.equal(race.canonicalOwner('000000'), 'not recorded');
-assert.equal(race.canonicalOwner('310032'), 'not recorded');
+assert.equal(race.canonicalOwner('000000'), '000000');
+assert.equal(race.canonicalOwner('310032'), '310032');
 assert.equal(race.personOwner(row('PO-DRAFT', '', 1, 'Procurement', 0, { 'Approval status': 'Draft', 'Created by': 'guessed.owner' }), 'PO'), 'not recorded');
-assert.deepEqual(race.holderNames(row('PR-SHARED', 'Adnan.Ullah, adnan.ullah, Layusha.cleatus', 1, 'Procurement', 10)), ['Adnan.Ullah', 'Layusha.cleatus']);
+assert.deepEqual(race.holderNames(row('PR-DATA-FAULT', 'Adnan.Ullah, Layusha.cleatus', 1, 'Procurement', 10)), ['No named owner — F&O export data fault: more than one owner supplied']);
 assert.equal(race.median([7, 1, 3, 9]), 5);
 assert.deepEqual(race.metric([row('PR-NO-DATE', 'Owner', null, 'Procurement', 10)]), {
   items: 1, pricedItems: 1, unpricedItems: 0, value: 10, averageDays: null, medianDays: null, oldestDays: null, over7: 0
