@@ -7516,3 +7516,12 @@ All 14 named-owner differences are zero across 954 actionable requisitions. F&O 
 - Publisher rehearsal run `34464225011` completed generation, evidence upload, scoped workbook commit, and Pages deployment in 42 seconds. This proves the project-controlled dispatch path; it was a manual rehearsal, not a scheduled occurrence.
 - The Codex automation `pr-po-workbook-pre-send-publisher` is active at 03:30 UTC / 07:30 Dubai every weekday. Its first unattended weekday run will be 11 September, so the required post-change unattended run history does not yet exist. This limitation is stated plainly rather than reported as passed.
 - The public `pr.xlsx` and `po.xlsx` binary SHA-256 values match local `main`. The public `index.html` Git blob matches `main`; the raw worktree byte count differs only because the Windows checkout uses CRLF and GitHub Pages serves the repository's LF-normalized blob.
+
+# 11 September 2026 PR/PO sender activation dashboard note
+
+- Task authority named this dashboard repository, but the sender activation itself lives in `Strive-Services-Group/pr-po-proxy`.
+- Dashboard `main` was fast-forwarded from `b27cf2a` to `1b0870a` before verification, keeping the automated workbook refresh instead of reverting it.
+- No dashboard source, UI, data-source logic, Chandan sender, OneDrive, token, recipient, permission, or schedule was changed in this repository.
+- Dashboard JavaScript tests run: `node --test tests/*.test.js`. Result: 24 passed, 0 failed.
+- Dashboard Python tests run: `python -m unittest discover -s tests -p "test_*.py"`. Result: 23 passed, 0 failed.
+- Build check note: this repo has no `package.json` build command. A direct `node -c index.html` check is not valid for an HTML file and failed with Node's unknown `.html` extension error, so it is recorded as an invalid check, not a product failure.
