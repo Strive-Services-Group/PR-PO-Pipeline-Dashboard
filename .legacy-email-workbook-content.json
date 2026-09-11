@@ -1,17 +1,17 @@
 {
   "formatVersion": 6,
-  "prContentSha256": "26bdd995d623d65a9ebc8cb33ca2886b20a3bb71d747ccd828d2ad7e599847d5",
-  "poContentSha256": "8dbf4856bab6d25549b6b57c46506237b6b1291d02bd76f385495c7bba8216f2",
+  "prContentSha256": "212331841e0c243c5a0fa5a8df9d830cead637ac868a6e9fb9d475c6882b8fb4",
+  "poContentSha256": "2cbdeac191b8a36fbb060619551f45d3b49b05fe6a2600800a22c3e76bac0090",
   "routingMetadataSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-  "datasetRevision": "37fd7c71955ba5b714cf111463a76692a8fd30871503a80f125f2b1244b1a098",
-  "datasetGeneratedAt": "2026-09-10T23:32:53.379Z",
+  "datasetRevision": "b13c31d583b9769e1ba3ec47f583732491985640c3fc3ee1ad987cff52e81d31",
+  "datasetGeneratedAt": "2026-09-11T08:51:08.142Z",
   "exportAuthority": {
     "source": "Dynamics 365 F&O export supplied by IT",
     "prFile": "Purchase Reques.xlsx",
     "poFile": "Purchase order.xlsx",
-    "exportDateUtc": "2026-09-07T11:34:19Z",
-    "stale": true,
-    "provenanceSentence": "These figures come from the Dynamics 365 F&O export supplied by IT, dated 7 September 2026.",
-    "staleWarning": "Warning: the latest Dynamics 365 F&O export supplied by IT is dated 7 September 2026, so these figures are older than this morning's send."
+    "exportDateUtc": "2026-09-11T05:20:00Z",
+    "stale": false,
+    "provenanceSentence": "These figures come from the Dynamics 365 F&O export supplied by IT, dated 11 September 2026.",
+    "staleWarning": ""
   }
 }
